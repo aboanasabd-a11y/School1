@@ -18,6 +18,10 @@ import {
   ShieldCheck,
   X,
   School,
+  DollarSign,
+  ShieldAlert,
+  UserCheck,
+  Navigation,
 } from "lucide-react";
 
 export type TabType = ActiveModule;
@@ -38,6 +42,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const {
     activeModule,
     setActiveModule,
+    currentUser,
     students,
     staff,
     exams,
@@ -52,10 +57,53 @@ export const Sidebar: React.FC<SidebarProps> = ({
     onClose();
   };
 
+  const portalItems = [
+    {
+      id: "portal_super_admin" as TabType,
+      label: "بوابة المدير العام (إشراف كامل)",
+      icon: ShieldAlert,
+      tag: "المدير",
+      color: "text-amber-400",
+      activeBg: "bg-amber-500/20 text-amber-300 border-r-2 border-amber-400",
+    },
+    {
+      id: "portal_teacher" as TabType,
+      label: "بوابة المعلم (متابعة ورصد)",
+      icon: GraduationCap,
+      tag: "المعلم",
+      color: "text-blue-400",
+      activeBg: "bg-blue-500/20 text-blue-300 border-r-2 border-blue-400",
+    },
+    {
+      id: "portal_accountant" as TabType,
+      label: "بوابة المحاسب (أقساط وسندات)",
+      icon: DollarSign,
+      tag: "المحاسب",
+      color: "text-indigo-400",
+      activeBg: "bg-indigo-500/20 text-indigo-300 border-r-2 border-indigo-400",
+    },
+    {
+      id: "portal_parent" as TabType,
+      label: "بوابة ولي الأمر (متابعة وملاحظات)",
+      icon: Users,
+      tag: "ولي أمر",
+      color: "text-purple-400",
+      activeBg: "bg-purple-500/20 text-purple-300 border-r-2 border-purple-400",
+    },
+    {
+      id: "portal_bus_supervisor" as TabType,
+      label: "بوابة مشرف الحافلات (GPS)",
+      icon: Bus,
+      tag: "حافلات",
+      color: "text-amber-400",
+      activeBg: "bg-amber-500/20 text-amber-300 border-r-2 border-amber-400",
+    },
+  ];
+
   const navigationItems = [
     {
       id: "dashboard" as TabType,
-      label: "لوحة التحكم",
+      label: "لوحة التحكم العامة",
       icon: LayoutDashboard,
       badge: null,
     },
@@ -144,7 +192,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
       )}
 
       <aside
-        className={`fixed lg:static inset-y-0 right-0 z-50 w-56 bg-slate-800 text-slate-200 border-l border-slate-700 flex flex-col shrink-0 transition-transform duration-200 ease-in-out ${
+        className={`fixed lg:static inset-y-0 right-0 z-50 w-60 bg-slate-800 text-slate-200 border-l border-slate-700 flex flex-col shrink-0 transition-transform duration-200 ease-in-out ${
           isOpen ? "translate-x-0" : "translate-x-full lg:translate-x-0"
         }`}
       >
@@ -158,7 +206,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               <div className="text-sm font-bold text-white leading-tight">
                 إتقان <span className="text-sky-400">التعليمي</span>
               </div>
-              <div className="text-[10px] text-slate-400">نظام إدارة المدارس</div>
+              <div className="text-[10px] text-slate-400">نظام إدارة المدارس المتكامل</div>
             </div>
           </div>
           <button
@@ -170,48 +218,88 @@ export const Sidebar: React.FC<SidebarProps> = ({
         </div>
 
         {/* Navigation List */}
-        <nav className="flex-1 overflow-y-auto p-2 space-y-0.5">
-          <div className="px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-400">
-            الوحدات الأساسية
+        <nav className="flex-1 overflow-y-auto p-2 space-y-3">
+          {/* SECTION 1: 5 INDEPENDENT PORTALS */}
+          <div className="space-y-1">
+            <div className="px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-amber-400/90 flex items-center justify-between">
+              <span>البوابات الـ 5 المستقلة</span>
+              <span className="text-[9px] bg-amber-400/10 text-amber-300 px-1.5 py-0.2 rounded">صلاحيات</span>
+            </div>
+
+            {portalItems.map((item) => {
+              const Icon = item.icon;
+              const isActive = currentActive === item.id;
+
+              return (
+                <button
+                  key={item.id}
+                  onClick={() => handleSelect(item.id)}
+                  className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-md text-[12px] font-bold transition-all ${
+                    isActive
+                      ? `${item.activeBg} font-bold shadow-xs`
+                      : "text-slate-300 hover:bg-slate-700/60 hover:text-white"
+                  }`}
+                >
+                  <div className="flex items-center gap-2 min-w-0">
+                    <Icon
+                      className={`w-3.5 h-3.5 shrink-0 ${
+                        isActive ? item.color : "text-slate-400"
+                      }`}
+                    />
+                    <span className="truncate">{item.label}</span>
+                  </div>
+                  <span className="text-[9px] px-1 py-0.2 rounded bg-slate-700/80 text-slate-300 shrink-0 font-normal">
+                    {item.tag}
+                  </span>
+                </button>
+              );
+            })}
           </div>
 
-          {navigationItems.map((item) => {
-            const Icon = item.icon;
-            const isActive = currentActive === item.id;
+          {/* SECTION 2: CORE SYSTEM MODULES */}
+          <div className="space-y-0.5 pt-2 border-t border-slate-700/60">
+            <div className="px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+              الوحدات والأنظمة العامة
+            </div>
 
-            return (
-              <button
-                key={item.id}
-                onClick={() => handleSelect(item.id)}
-                className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-md text-[12.5px] font-medium transition-colors ${
-                  isActive
-                    ? "bg-slate-700 text-white font-semibold shadow-xs"
-                    : "text-slate-300 hover:bg-slate-700/60 hover:text-white"
-                }`}
-              >
-                <div className="flex items-center gap-2.5 min-w-0">
-                  <Icon
-                    className={`w-4 h-4 shrink-0 ${
-                      isActive ? "text-sky-400" : "text-slate-400"
-                    }`}
-                  />
-                  <span className="truncate">{item.label}</span>
-                </div>
+            {navigationItems.map((item) => {
+              const Icon = item.icon;
+              const isActive = currentActive === item.id;
 
-                {item.badge !== null && (
-                  <span
-                    className={`text-[10px] px-1.5 py-0.2 rounded font-semibold shrink-0 ${
-                      isActive
-                        ? "bg-sky-500/20 text-sky-300"
-                        : item.badgeColor || "bg-slate-700 text-slate-300"
-                    }`}
-                  >
-                    {item.badge}
-                  </span>
-                )}
-              </button>
-            );
-          })}
+              return (
+                <button
+                  key={item.id}
+                  onClick={() => handleSelect(item.id)}
+                  className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-md text-[12px] font-medium transition-colors ${
+                    isActive
+                      ? "bg-slate-700 text-white font-semibold shadow-xs"
+                      : "text-slate-300 hover:bg-slate-700/60 hover:text-white"
+                  }`}
+                >
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <Icon
+                      className={`w-4 h-4 shrink-0 ${
+                        isActive ? "text-sky-400" : "text-slate-400"
+                      }`}
+                    />
+                    <span className="truncate">{item.label}</span>
+                  </div>
+
+                  {item.badge !== null && (
+                    <span
+                      className={`text-[10px] px-1.5 py-0.2 rounded font-semibold shrink-0 ${
+                        isActive
+                          ? "bg-sky-500/20 text-sky-300"
+                          : item.badgeColor || "bg-slate-700 text-slate-300"
+                      }`}
+                    >
+                      {item.badge}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
         </nav>
 
         {/* Bottom Cloud Status */}

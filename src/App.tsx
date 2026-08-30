@@ -15,14 +15,36 @@ import { TimetableManagerView } from "./components/timetable/TimetableManagerVie
 import { ReportsView } from "./components/reports/ReportsView";
 import { FinancialsView } from "./components/finance/FinancialsView";
 import { SettingsManagerView } from "./components/settings/SettingsManagerView";
+import { GeneralManagerPortal } from "./components/portals/GeneralManagerPortal";
+import { TeacherPortal } from "./components/portals/TeacherPortal";
+import { AccountantPortal } from "./components/portals/AccountantPortal";
+import { ParentPortal } from "./components/portals/ParentPortal";
+import { BusSupervisorPortal } from "./components/portals/BusSupervisorPortal";
 
 const MainContent: React.FC = () => {
-  const { activeModule, setActiveModule } = useSchool();
+  const { activeModule, setActiveModule, currentUser } = useSchool();
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const renderActiveView = () => {
     switch (activeModule) {
+      // 5 Independent Role Portals
+      case "portal_super_admin":
+        return <GeneralManagerPortal />;
+      case "portal_teacher":
+        return <TeacherPortal />;
+      case "portal_accountant":
+        return <AccountantPortal />;
+      case "portal_parent":
+        return <ParentPortal />;
+      case "portal_bus_supervisor":
+        return <BusSupervisorPortal />;
+
+      // Core System Modules
       case "dashboard":
+        if (currentUser.role === "teacher") return <TeacherPortal />;
+        if (currentUser.role === "accountant") return <AccountantPortal />;
+        if (currentUser.role === "parent") return <ParentPortal />;
+        if (currentUser.role === "bus_supervisor") return <BusSupervisorPortal />;
         return <DashboardOverview setActiveTab={setActiveModule} />;
       case "school":
         return <SchoolStructureView />;

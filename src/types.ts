@@ -10,7 +10,12 @@ export type ActiveModule =
   | 'timetable'
   | 'reports'
   | 'finance'
-  | 'settings';
+  | 'settings'
+  | 'portal_super_admin'
+  | 'portal_teacher'
+  | 'portal_accountant'
+  | 'portal_parent'
+  | 'portal_bus_supervisor';
 
 export type UserRole = 
   | 'super_admin' 

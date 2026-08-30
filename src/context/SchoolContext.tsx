@@ -54,6 +54,7 @@ interface SchoolContextType {
   setCurrentUser: (user: UserAccount) => void;
   userProfiles: UserAccount[];
   switchRole: (role: UserRole) => void;
+  switchUserRole: (role: UserRole) => void;
   
   academicYears: AcademicYear[];
   grades: Grade[];
@@ -271,6 +272,19 @@ export const SchoolProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     const matched = userProfiles.find((u) => u.role === role) || userProfiles[0];
     setCurrentUser(matched);
     addAuditLog(`تبديل صلاحية المستخدم إلى ${role}`, "إدارة المستخدمين", `تم تسجيل الدخول بدور: ${matched.fullName}`);
+
+    // Automatically navigate to the user's dedicated portal
+    if (role === "teacher") {
+      setActiveModule("portal_teacher");
+    } else if (role === "accountant") {
+      setActiveModule("portal_accountant");
+    } else if (role === "parent") {
+      setActiveModule("portal_parent");
+    } else if (role === "bus_supervisor") {
+      setActiveModule("portal_bus_supervisor");
+    } else {
+      setActiveModule("portal_super_admin");
+    }
   };
 
   // Student Actions
@@ -718,6 +732,7 @@ export const SchoolProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         setCurrentUser,
         userProfiles,
         switchRole,
+        switchUserRole: switchRole,
         academicYears,
         grades,
         sections,
