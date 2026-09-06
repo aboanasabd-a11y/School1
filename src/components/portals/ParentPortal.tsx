@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useSchool } from "../../context/SchoolContext";
 import {
   User,
@@ -24,12 +24,20 @@ import {
   Download,
   Receipt,
   Check,
+  Link as LinkIcon,
+  Copy,
+  Share2,
+  ExternalLink,
+  ChevronDown,
 } from "lucide-react";
 
 export const ParentPortal: React.FC = () => {
   const {
     currentUser,
     students,
+    activeDirectStudentId,
+    openSmartLinksModal,
+    generateParentDirectLink,
     exams,
     gradeRecords,
     attendanceRecords,
@@ -44,12 +52,40 @@ export const ParentPortal: React.FC = () => {
   } = useSchool();
 
   // Find linked student for this parent
-  // Default to first student (يوسف عمر عبد الرحيم) if linkedStudentId matches or default
+  // Prioritize activeDirectStudentId if accessed via direct student link
   const linkedStudent =
-    students.find((s) => s.id === currentUser.linkedStudentId) || students[0];
+    (activeDirectStudentId && students.find((s) => s.id === activeDirectStudentId)) ||
+    students.find((s) => s.id === currentUser.linkedStudentId) ||
+    students[0];
 
   const [selectedStudentId, setSelectedStudentId] = useState(linkedStudent.id);
+
+  // Keep selected student synced if active direct link changes
+  useEffect(() => {
+    if (activeDirectStudentId) {
+      setSelectedStudentId(activeDirectStudentId);
+    } else if (currentUser.linkedStudentId) {
+      setSelectedStudentId(currentUser.linkedStudentId);
+    }
+  }, [activeDirectStudentId, currentUser.linkedStudentId]);
+
   const currentStudent = students.find((s) => s.id === selectedStudentId) || linkedStudent;
+  const [copiedLink, setCopiedLink] = useState(false);
+
+  const directStudentUrl = generateParentDirectLink(currentStudent.studentNumber);
+
+  const handleCopyLink = () => {
+    navigator.clipboard.writeText(directStudentUrl);
+    setCopiedLink(true);
+    setTimeout(() => setCopiedLink(false), 2500);
+  };
+
+  const handleWhatsAppShare = () => {
+    const phone = currentStudent.familyInfo?.fatherPhone?.replace(/[^0-9]/g, "") || "";
+    const msg = `السلام عليكم ورحمة الله،\nرابط صفحة متابعة الطالب: *${currentStudent.fullName}*\nرقم القيد الأكاديمي: *${currentStudent.studentNumber}*\n🔗 ${directStudentUrl}`;
+    const url = `https://wa.me/${phone ? (phone.startsWith("966") ? phone : "966" + phone.replace(/^0+/, "")) : ""}?text=${encodeURIComponent(msg)}`;
+    window.open(url, "_blank");
+  };
 
   // Active sub-tab
   const [activeTab, setActiveTab] = useState<
@@ -226,12 +262,12 @@ export const ParentPortal: React.FC = () => {
             }`}
           >
             <CreditCard className="w-3.5 h-3.5" />
-            <span>الأقساط والسداد</span>
+            <span>الأقساط والرسوم</span>
           </button>
 
           <button
             onClick={() => setActiveTab("feedback")}
-            className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all flex items-center gap-1.5 relative ${
+            className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all flex items-center gap-1.5 ${
               activeTab === "feedback"
                 ? "bg-white text-purple-700 shadow-xs"
                 : "text-slate-600 hover:text-slate-900"
@@ -239,7 +275,72 @@ export const ParentPortal: React.FC = () => {
           >
             <MessageSquare className="w-3.5 h-3.5" />
             <span>ملاحظات للإدارة والمعلمين</span>
-            <span className="w-2 h-2 rounded-full bg-emerald-500" />
+          </button>
+        </div>
+      </div>
+
+      {/* Student Selector & Direct Link Dispatcher Bar */}
+      <div className="bg-gradient-to-r from-purple-50 via-indigo-50 to-blue-50 border border-purple-200 rounded-xl p-3 sm:p-4 flex flex-col md:flex-row items-start md:items-center justify-between gap-3 shadow-2xs">
+        <div className="flex flex-wrap items-center gap-3 w-full md:w-auto">
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-bold text-slate-700">الطالب الحالي:</span>
+            <select
+              value={selectedStudentId}
+              onChange={(e) => setSelectedStudentId(e.target.value)}
+              className="text-xs font-bold bg-white border border-purple-300 text-purple-900 rounded-lg px-2.5 py-1.5 focus:outline-hidden focus:ring-1 focus:ring-purple-500 shadow-2xs"
+            >
+              {students.map((st) => (
+                <option key={st.id} value={st.id}>
+                  {st.fullName} ({st.studentNumber}) - {st.gradeName}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="flex items-center gap-1.5 bg-white px-2.5 py-1 rounded-lg border border-purple-200 text-xs font-mono font-bold text-purple-700">
+            <span>رقم القيد الأكاديمي:</span>
+            <span className="bg-purple-100 px-1.5 py-0.5 rounded text-purple-900">
+              {currentStudent.studentNumber}
+            </span>
+          </div>
+        </div>
+
+        {/* Share & Copy Actions */}
+        <div className="flex flex-wrap items-center gap-2 w-full md:w-auto justify-end">
+          <button
+            onClick={handleCopyLink}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white border border-purple-300 hover:bg-purple-50 text-purple-800 text-xs font-bold shadow-2xs transition-colors"
+            title="نسخ الرابط المباشر لصفحة هذا الطالب"
+          >
+            {copiedLink ? (
+              <>
+                <Check className="w-3.5 h-3.5 text-emerald-600" />
+                <span className="text-emerald-700">تم نسخ الرابط!</span>
+              </>
+            ) : (
+              <>
+                <Copy className="w-3.5 h-3.5" />
+                <span>نسخ رابط الطالب</span>
+              </>
+            )}
+          </button>
+
+          <button
+            onClick={handleWhatsAppShare}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-2xs transition-colors"
+            title="إرسال الرابط لولي الأمر عبر واتساب"
+          >
+            <MessageSquare className="w-3.5 h-3.5" />
+            <span>إرسال واتساب 💬</span>
+          </button>
+
+          <button
+            onClick={() => openSmartLinksModal("parent", currentStudent.id)}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-purple-700 hover:bg-purple-800 text-white text-xs font-bold shadow-2xs transition-colors"
+            title="فتح مركز الروابط الذكية الشامل لكافة الطلاب والمعلمين"
+          >
+            <Share2 className="w-3.5 h-3.5" />
+            <span>مركز الروابط الذكية</span>
           </button>
         </div>
       </div>

@@ -21,11 +21,16 @@ import {
   Phone,
   HelpCircle,
   UserCheck,
+  Copy,
+  Share2,
+  ExternalLink,
+  Link as LinkIcon,
 } from "lucide-react";
 
 export const TeacherPortal: React.FC = () => {
   const {
     currentUser,
+    staff,
     students,
     grades,
     sections,
@@ -43,7 +48,34 @@ export const TeacherPortal: React.FC = () => {
     directMessages,
     sendDirectMessage,
     replyDirectMessage,
+    activeDirectTeacherId,
+    openSmartLinksModal,
+    generateTeacherDirectLink,
+    generateParentDirectLink,
   } = useSchool();
+
+  const teacherStaffId = activeDirectTeacherId || currentUser.linkedStaffId || "staff-2";
+  const currentTeacherStaff =
+    staff.find((s) => s.id === teacherStaffId) ||
+    staff.find((s) => s.role === "teacher") ||
+    staff[1];
+
+  const teacherDirectUrl = generateTeacherDirectLink(currentTeacherStaff.id);
+  const [copiedTeacherLink, setCopiedTeacherLink] = useState(false);
+  const [copiedStudentId, setCopiedStudentId] = useState<string | null>(null);
+
+  const handleCopyTeacherLink = () => {
+    navigator.clipboard.writeText(teacherDirectUrl);
+    setCopiedTeacherLink(true);
+    setTimeout(() => setCopiedTeacherLink(false), 2500);
+  };
+
+  const handleWhatsAppTeacherShare = () => {
+    const phone = currentTeacherStaff.phone?.replace(/[^0-9]/g, "") || "";
+    const msg = `السلام عليكم أستاذ/ة: *${currentTeacherStaff.fullName}*\nرابط صفحتكم المجهزة مسبقاً في نظام إتقان:\n🔗 ${teacherDirectUrl}`;
+    const url = `https://wa.me/${phone ? (phone.startsWith("966") ? phone : "966" + phone.replace(/^0+/, "")) : ""}?text=${encodeURIComponent(msg)}`;
+    window.open(url, "_blank");
+  };
 
   // Active sub-tab inside Teacher Portal
   const [activeTab, setActiveTab] = useState<
@@ -335,6 +367,76 @@ export const TeacherPortal: React.FC = () => {
         </div>
       </div>
 
+      {/* Teacher Direct Link Dispatcher Bar */}
+      <div className="bg-gradient-to-r from-emerald-50 via-teal-50 to-indigo-50 border border-emerald-200 rounded-xl p-3 sm:p-4 flex flex-col md:flex-row items-start md:items-center justify-between gap-3 shadow-2xs">
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="flex items-center gap-2.5">
+            <img
+              src={currentTeacherStaff.photo}
+              alt={currentTeacherStaff.fullName}
+              className="w-9 h-9 rounded-lg object-cover ring-1 ring-emerald-300 shadow-2xs"
+            />
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-bold text-slate-800">
+                  {currentTeacherStaff.fullName}
+                </span>
+                <span className="text-[10px] px-1.5 py-0.2 rounded bg-emerald-100 text-emerald-800 font-semibold">
+                  {currentTeacherStaff.specialization || "معلم"}
+                </span>
+              </div>
+              <span className="text-[10px] text-slate-500 font-mono">
+                الرقم الوظيفي: {currentTeacherStaff.employeeNumber}
+              </span>
+            </div>
+          </div>
+
+          <div className="hidden lg:flex items-center gap-1.5 bg-white px-2.5 py-1 rounded-lg border border-emerald-200 text-[11px] font-mono font-bold text-emerald-800 truncate max-w-xs">
+            <LinkIcon className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+            <span className="truncate">{teacherDirectUrl}</span>
+          </div>
+        </div>
+
+        {/* Action buttons */}
+        <div className="flex flex-wrap items-center gap-2 w-full md:w-auto justify-end">
+          <button
+            onClick={handleCopyTeacherLink}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white border border-emerald-300 hover:bg-emerald-50 text-emerald-800 text-xs font-bold shadow-2xs transition-colors"
+            title="نسخ رابط صفحة المعلم المجهزة مسبقاً"
+          >
+            {copiedTeacherLink ? (
+              <>
+                <Check className="w-3.5 h-3.5 text-emerald-600" />
+                <span className="text-emerald-700">تم نسخ الرابط!</span>
+              </>
+            ) : (
+              <>
+                <Copy className="w-3.5 h-3.5" />
+                <span>نسخ رابط صفحة المعلم</span>
+              </>
+            )}
+          </button>
+
+          <button
+            onClick={handleWhatsAppTeacherShare}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-2xs transition-colors"
+            title="إرسال الرابط للمعلم عبر واتساب"
+          >
+            <MessageSquare className="w-3.5 h-3.5" />
+            <span>إرسال واتساب للمعلم 💬</span>
+          </button>
+
+          <button
+            onClick={() => openSmartLinksModal("teacher", currentTeacherStaff.id)}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-700 hover:bg-indigo-800 text-white text-xs font-bold shadow-2xs transition-colors"
+            title="فتح مركز الروابط الذكية الشامل لكافة المعلمين والطلاب"
+          >
+            <Share2 className="w-3.5 h-3.5" />
+            <span>مركز الروابط الذكية</span>
+          </button>
+        </div>
+      </div>
+
       {/* Global Grade & Section Selector Filter Bar */}
       <div className="bg-white rounded-xl p-3 border border-slate-200 shadow-2xs flex flex-wrap items-center justify-between gap-3">
         <div className="flex flex-wrap items-center gap-2 sm:gap-3">
@@ -425,6 +527,7 @@ export const TeacherPortal: React.FC = () => {
                     <th>ولي الأمر والتواصل</th>
                     <th>السجل الصحي / فصيلة الدم</th>
                     <th>المستوى الأكاديمي</th>
+                    <th>رابط ولي الأمر (إرسال مباشر)</th>
                     <th>ملاحظات المعلم</th>
                   </tr>
                 </thead>
@@ -468,6 +571,45 @@ export const TeacherPortal: React.FC = () => {
                         </div>
                         <div className="text-[9.5px] text-slate-400">
                           الترتيب: {st.academicHistory?.[0]?.ranking || 1} على الشعبة
+                        </div>
+                      </td>
+                      <td>
+                        <div className="flex items-center gap-1.5">
+                          <button
+                            onClick={() => {
+                              const link = generateParentDirectLink(st.studentNumber);
+                              navigator.clipboard.writeText(link);
+                              setCopiedStudentId(st.id);
+                              setTimeout(() => setCopiedStudentId(null), 2500);
+                            }}
+                            className="px-2 py-1 bg-white hover:bg-slate-100 text-slate-700 rounded border border-slate-300 text-[10px] font-bold flex items-center gap-1 shadow-2xs transition-colors"
+                            title="نسخ الرابط المباشر لصفحة هذا الطالب"
+                          >
+                            {copiedStudentId === st.id ? (
+                              <>
+                                <Check className="w-3 h-3 text-emerald-600" />
+                                <span className="text-emerald-700">تم النسخ</span>
+                              </>
+                            ) : (
+                              <>
+                                <Copy className="w-3 h-3 text-slate-500" />
+                                <span>نسخ الرابط</span>
+                              </>
+                            )}
+                          </button>
+                          <button
+                            onClick={() => {
+                              const link = generateParentDirectLink(st.studentNumber);
+                              const phone = st.familyInfo?.fatherPhone?.replace(/[^0-9]/g, "") || "";
+                              const msg = `السلام عليكم ورحمة الله،\nأستاذ/ة ${currentTeacherStaff.fullName}:\nرابط متابعة الطالب/ة *${st.fullName}* برقم القيد *${st.studentNumber}*:\n🔗 ${link}`;
+                              const url = `https://wa.me/${phone ? (phone.startsWith("966") ? phone : "966" + phone.replace(/^0+/, "")) : ""}?text=${encodeURIComponent(msg)}`;
+                              window.open(url, "_blank");
+                            }}
+                            className="p-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded border border-emerald-300 transition-colors"
+                            title="إرسال رابط صفحة الطالب لولي الأمر عبر واتساب"
+                          >
+                            <MessageSquare className="w-3 h-3" />
+                          </button>
                         </div>
                       </td>
                       <td>

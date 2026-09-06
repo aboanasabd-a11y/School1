@@ -83,6 +83,22 @@ interface SchoolContextType {
   selectedSectionId: string | null;
   setSelectedSectionId: (id: string | null) => void;
 
+  // Smart Links & Direct Links Dispatcher
+  isSmartLinksModalOpen: boolean;
+  setIsSmartLinksModalOpen: (open: boolean) => void;
+  smartLinksInitialTab: "parent" | "teacher";
+  smartLinksTargetId: string | null;
+  openSmartLinksModal: (tab?: "parent" | "teacher", targetId?: string) => void;
+  activeDirectStudentId: string | null;
+  setActiveDirectStudentId: (id: string | null) => void;
+  activeDirectTeacherId: string | null;
+  setActiveDirectTeacherId: (id: string | null) => void;
+  directLinkNotification: { type: "parent" | "teacher"; targetName: string; targetCode: string; message: string } | null;
+  clearDirectLinkNotification: () => void;
+  generateParentDirectLink: (studentNumber: string) => string;
+  generateTeacherDirectLink: (teacherId: string) => string;
+  applyDirectLinkAccess: (type: "parent" | "teacher", identifier: string) => boolean;
+
   // Actions
   // Students
   addStudent: (student: Omit<Student, "id" | "studentNumber">) => void;
@@ -172,6 +188,163 @@ export const SchoolProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const [selectedYear, setSelectedYear] = useState<string>("year-2025-2026");
   const [selectedGradeId, setSelectedGradeId] = useState<string | null>(null);
   const [selectedSectionId, setSelectedSectionId] = useState<string | null>(null);
+
+  // Smart Links & Direct Access State
+  const [isSmartLinksModalOpen, setIsSmartLinksModalOpen] = useState(false);
+  const [smartLinksInitialTab, setSmartLinksInitialTab] = useState<"parent" | "teacher">("parent");
+  const [smartLinksTargetId, setSmartLinksTargetId] = useState<string | null>(null);
+  const [activeDirectStudentId, setActiveDirectStudentId] = useState<string | null>(null);
+  const [activeDirectTeacherId, setActiveDirectTeacherId] = useState<string | null>(null);
+  const [directLinkNotification, setDirectLinkNotification] = useState<{
+    type: "parent" | "teacher";
+    targetName: string;
+    targetCode: string;
+    message: string;
+  } | null>(null);
+
+  const clearDirectLinkNotification = () => setDirectLinkNotification(null);
+
+  const openSmartLinksModal = (tab: "parent" | "teacher" = "parent", targetId?: string) => {
+    setSmartLinksInitialTab(tab);
+    setSmartLinksTargetId(targetId || null);
+    setIsSmartLinksModalOpen(true);
+  };
+
+  const generateParentDirectLink = (studentNumber: string) => {
+    const base = `${window.location.origin}${window.location.pathname}`;
+    return `${base}?portal=parent&studentNumber=${encodeURIComponent(studentNumber.trim())}`;
+  };
+
+  const generateTeacherDirectLink = (teacherId: string) => {
+    const base = `${window.location.origin}${window.location.pathname}`;
+    return `${base}?portal=teacher&teacherId=${encodeURIComponent(teacherId.trim())}`;
+  };
+
+  const applyDirectLinkAccess = (type: "parent" | "teacher", identifier: string): boolean => {
+    const trimmed = identifier.trim();
+    if (type === "parent") {
+      const foundStudent = students.find(
+        (s) =>
+          s.studentNumber.toLowerCase() === trimmed.toLowerCase() ||
+          s.id.toLowerCase() === trimmed.toLowerCase() ||
+          s.nationalId === trimmed
+      );
+      if (foundStudent) {
+        setActiveDirectStudentId(foundStudent.id);
+        const parentUser: UserAccount = {
+          id: `usr-parent-${foundStudent.id}`,
+          username: `parent.${foundStudent.studentNumber.toLowerCase()}`,
+          fullName: foundStudent.familyInfo?.fatherName || `ولي أمر الطالب ${foundStudent.fullName}`,
+          role: "parent",
+          email: foundStudent.familyInfo?.fatherEmail || "parent@privateschool.edu",
+          avatar: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&h=100&fit=crop",
+          permissions: [
+            "view_child_profile",
+            "view_grades",
+            "view_attendance",
+            "track_bus_gps",
+            "pay_tuition",
+            "direct_messaging",
+          ],
+          linkedStudentId: foundStudent.id,
+          lastLogin: "دخول مباشر عبر رابط الطالب",
+        };
+        setCurrentUser(parentUser);
+        setActiveModule("portal_parent");
+        setDirectLinkNotification({
+          type: "parent",
+          targetName: foundStudent.fullName,
+          targetCode: foundStudent.studentNumber,
+          message: `تم الدخول المباشر لصفحة الطالب: ${foundStudent.fullName} (رقم القيد: ${foundStudent.studentNumber})`,
+        });
+        addAuditLog(
+          `دخول مباشر لولي أمر الطالب ${foundStudent.fullName}`,
+          "الروابط الذكية",
+          `تم تسجيل الدخول عبر رابط الطالب برقم القيد: ${foundStudent.studentNumber}`
+        );
+
+        try {
+          const newUrl = `${window.location.pathname}?portal=parent&studentNumber=${encodeURIComponent(foundStudent.studentNumber)}`;
+          window.history.pushState({ portal: "parent", studentNumber: foundStudent.studentNumber }, "", newUrl);
+        } catch (_) {}
+
+        return true;
+      }
+    } else {
+      const foundStaff = staff.find(
+        (t) =>
+          t.id.toLowerCase() === trimmed.toLowerCase() ||
+          t.employeeNumber.toLowerCase() === trimmed.toLowerCase() ||
+          t.fullName.includes(trimmed)
+      );
+      if (foundStaff) {
+        setActiveDirectTeacherId(foundStaff.id);
+        const teacherUser: UserAccount = {
+          id: `usr-teacher-${foundStaff.id}`,
+          username: `teacher.${foundStaff.employeeNumber.toLowerCase()}`,
+          fullName: foundStaff.fullName,
+          role: "teacher",
+          email: foundStaff.email,
+          avatar: foundStaff.photo,
+          permissions: [
+            "view_students",
+            "record_attendance",
+            "enter_grades",
+            "manage_assignments",
+            "record_behavior",
+            "send_messages",
+          ],
+          linkedStaffId: foundStaff.id,
+          lastLogin: "دخول مباشر عبر رابط المعلم",
+        };
+        setCurrentUser(teacherUser);
+        setActiveModule("portal_teacher");
+        setDirectLinkNotification({
+          type: "teacher",
+          targetName: foundStaff.fullName,
+          targetCode: foundStaff.employeeNumber,
+          message: `تم الدخول المباشر لبوابة المعلم: ${foundStaff.fullName} (الرقم الوظيفي: ${foundStaff.employeeNumber})`,
+        });
+        addAuditLog(
+          `دخول مباشر لبوابة المعلم ${foundStaff.fullName}`,
+          "الروابط الذكية",
+          `تم فتح صفحة المعلم المنشأة مسبقاً بالرقم الوظيفي: ${foundStaff.employeeNumber}`
+        );
+
+        try {
+          const newUrl = `${window.location.pathname}?portal=teacher&teacherId=${encodeURIComponent(foundStaff.id)}`;
+          window.history.pushState({ portal: "teacher", teacherId: foundStaff.id }, "", newUrl);
+        } catch (_) {}
+
+        return true;
+      }
+    }
+    return false;
+  };
+
+  // Check URL parameters on initial load
+  useEffect(() => {
+    try {
+      const urlParams = new URLSearchParams(window.location.search);
+      const studentNumberParam =
+        urlParams.get("studentNumber") || urlParams.get("student") || urlParams.get("studentId");
+      const teacherParam =
+        urlParams.get("teacherId") || urlParams.get("teacher") || urlParams.get("staffId");
+      const portalParam = urlParams.get("portal");
+
+      if (studentNumberParam) {
+        applyDirectLinkAccess("parent", studentNumberParam);
+      } else if (teacherParam) {
+        applyDirectLinkAccess("teacher", teacherParam);
+      } else if (portalParam === "parent") {
+        applyDirectLinkAccess("parent", "STD-2026-001");
+      } else if (portalParam === "teacher") {
+        applyDirectLinkAccess("teacher", "staff-2");
+      }
+    } catch (e) {
+      console.error("Error inspecting initial URL parameters:", e);
+    }
+  }, []);
 
   // Load from local storage
   useEffect(() => {
@@ -757,6 +930,20 @@ export const SchoolProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         setSelectedGradeId,
         selectedSectionId,
         setSelectedSectionId,
+        isSmartLinksModalOpen,
+        setIsSmartLinksModalOpen,
+        smartLinksInitialTab,
+        smartLinksTargetId,
+        openSmartLinksModal,
+        activeDirectStudentId,
+        setActiveDirectStudentId,
+        activeDirectTeacherId,
+        setActiveDirectTeacherId,
+        directLinkNotification,
+        clearDirectLinkNotification,
+        generateParentDirectLink,
+        generateTeacherDirectLink,
+        applyDirectLinkAccess,
         addStudent,
         updateStudent,
         deleteStudent,

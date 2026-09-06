@@ -20,9 +20,17 @@ import { TeacherPortal } from "./components/portals/TeacherPortal";
 import { AccountantPortal } from "./components/portals/AccountantPortal";
 import { ParentPortal } from "./components/portals/ParentPortal";
 import { BusSupervisorPortal } from "./components/portals/BusSupervisorPortal";
+import { SmartLinksModal } from "./components/links/SmartLinksModal";
 
 const MainContent: React.FC = () => {
-  const { activeModule, setActiveModule, currentUser } = useSchool();
+  const {
+    activeModule,
+    setActiveModule,
+    currentUser,
+    directLinkNotification,
+    clearDirectLinkNotification,
+    openSmartLinksModal,
+  } = useSchool();
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const renderActiveView = () => {
@@ -89,12 +97,51 @@ const MainContent: React.FC = () => {
         {/* Scrollable Content View Area */}
         <main className="flex-1 overflow-y-auto p-3 sm:p-4 lg:p-5 w-full">
           <div className="max-w-[1600px] mx-auto">
+            {directLinkNotification && (
+              <div className="mb-4 bg-gradient-to-r from-blue-900 to-indigo-900 text-white p-3.5 rounded-xl border border-blue-700 shadow-md flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 animate-in fade-in slide-in-from-top-2 duration-200">
+                <div className="flex items-center gap-2.5 text-xs">
+                  <div className="w-8 h-8 rounded-lg bg-blue-500/20 border border-blue-400/40 flex items-center justify-center text-blue-300 shrink-0 font-bold">
+                    🔗
+                  </div>
+                  <div>
+                    <div className="font-bold flex items-center gap-2">
+                      <span>{directLinkNotification.message}</span>
+                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-400/30 font-semibold">
+                        رابط مباشر موثق
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-blue-200 mt-0.5">
+                      تم تفعيل الصلاحيات الخاصة بالصفحة وتأكيد المعرف: <strong className="font-mono text-white">{directLinkNotification.targetCode}</strong>
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
+                  <button
+                    onClick={() => openSmartLinksModal(directLinkNotification.type)}
+                    className="px-2.5 py-1 bg-white/10 hover:bg-white/20 text-white rounded text-[11px] font-bold border border-white/20 transition-colors"
+                  >
+                    مشاركة روابط أخرى
+                  </button>
+                  <button
+                    onClick={clearDirectLinkNotification}
+                    className="p-1 rounded text-blue-300 hover:text-white hover:bg-white/10 transition-colors"
+                    title="إغلاق التنبيه"
+                  >
+                    ✕
+                  </button>
+                </div>
+              </div>
+            )}
+
             {renderActiveView()}
           </div>
         </main>
 
         {/* High Density Footer Status Bar */}
         <FooterBar />
+
+        {/* Global Smart Links Modal */}
+        <SmartLinksModal />
       </div>
     </div>
   );

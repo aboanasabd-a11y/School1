@@ -9,6 +9,8 @@ import {
   ChevronDown,
   CheckCircle,
   Menu,
+  Share2,
+  Link as LinkIcon,
 } from "lucide-react";
 
 interface HeaderProps {
@@ -26,6 +28,7 @@ export const Header: React.FC<HeaderProps> = ({ onToggleSidebar }) => {
     setSelectedYear,
     announcements,
     setActiveModule,
+    openSmartLinksModal,
   } = useSchool();
 
   const [showRoleMenu, setShowRoleMenu] = useState(false);
@@ -112,6 +115,16 @@ export const Header: React.FC<HeaderProps> = ({ onToggleSidebar }) => {
             </div>
           )}
         </div>
+
+        {/* Smart Links Modal Trigger */}
+        <button
+          onClick={() => openSmartLinksModal()}
+          className="flex items-center gap-1.5 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white px-2.5 sm:px-3 py-1.5 rounded-md text-xs font-bold shadow-xs transition-all"
+          title="إرسال رابط مباشر للمعلم أو لولي الأمر حسب رقم الطالب"
+        >
+          <LinkIcon className="w-3.5 h-3.5 shrink-0" />
+          <span className="hidden sm:inline">مشاركة الروابط المباشرة</span>
+        </button>
 
         {/* AI Action Button matching High Density design */}
         <button
