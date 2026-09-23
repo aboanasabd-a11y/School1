@@ -114,6 +114,8 @@ interface SchoolContextType {
   updateStudent: (id: string, updatedData: Partial<Student>) => void;
   deleteStudent: (id: string) => void;
   addStudentDocument: (studentId: string, doc: { title: string; type: any; fileSize: string }) => void;
+  importStudentsBatch: (newStudents: Student[], mode: "append" | "replace") => void;
+  resetStudentsToOfficialData: () => void;
   
   // Staff
   addStaff: (member: Omit<StaffMember, "id" | "employeeNumber">) => void;
@@ -677,6 +679,26 @@ export const SchoolProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     addAuditLog("حذف ملف طالب", "شؤون الطلاب", `تم أرشفة/حذف ملف الطالب ${student.fullName}`, "warning");
   };
 
+  const importStudentsBatch = (newStudents: Student[], mode: "append" | "replace") => {
+    if (mode === "replace") {
+      setStudents(newStudents);
+      addAuditLog("استيراد كشف طلاب كامل", "شؤون الطلاب", `تم استبدال سجل الطلاب بعدد ${newStudents.length} طالب`);
+    } else {
+      setStudents((prev) => {
+        // Avoid duplicate ID
+        const existingIds = new Set(prev.map((s) => s.id));
+        const filteredNew = newStudents.filter((s) => !existingIds.has(s.id));
+        return [...prev, ...filteredNew];
+      });
+      addAuditLog("إلحاق طلاب جدد من ملف", "شؤون الطلاب", `تم إلحاق ${newStudents.length} طالب بنجاح`);
+    }
+  };
+
+  const resetStudentsToOfficialData = () => {
+    setStudents(initialStudents);
+    addAuditLog("استعادة السجل الرسمي الكامل للطلاب", "شؤون الطلاب", `تمت استعادة السجل الكامل (${initialStudents.length} طالب)`);
+  };
+
   const addStudentDocument = (studentId: string, doc: { title: string; type: any; fileSize: string }) => {
     const newDoc = {
       id: `doc-${Date.now()}`,
@@ -1234,6 +1256,8 @@ export const SchoolProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         updateStudent,
         deleteStudent,
         addStudentDocument,
+        importStudentsBatch,
+        resetStudentsToOfficialData,
         addStaff,
         updateStaff,
         deleteStaff,

@@ -20,6 +20,7 @@ import {
   UserAccount,
   SchoolInfo,
 } from "../types";
+import { officialExtractedStudents } from "./officialStudentsList";
 
 export const initialAcademicYears: AcademicYear[] = [
   {
@@ -417,6 +418,7 @@ export const initialStaff: StaffMember[] = [
 ];
 
 export const initialStudents: Student[] = [
+  ...officialExtractedStudents,
   {
     id: "std-1",
     studentNumber: "STD-2026-101",

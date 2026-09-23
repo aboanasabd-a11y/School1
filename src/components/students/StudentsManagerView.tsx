@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { useSchool } from "../../context/SchoolContext";
 import { Student } from "../../types";
+import { StudentImportExportBar } from "./StudentImportExportBar";
 import {
   Users,
   Search,
@@ -20,6 +21,8 @@ import {
   X,
   ShieldCheck,
   Award,
+  Sparkles,
+  Bookmark,
 } from "lucide-react";
 
 export const StudentsManagerView: React.FC = () => {
@@ -33,6 +36,8 @@ export const StudentsManagerView: React.FC = () => {
     deleteStudent,
     addStudentDocument,
     recordPayment,
+    importStudentsBatch,
+    resetStudentsToOfficialData,
   } = useSchool();
 
   const [searchQuery, setSearchQuery] = useState("");
@@ -366,6 +371,15 @@ export const StudentsManagerView: React.FC = () => {
         </div>
       </div>
 
+      {/* Official Import & Export Data Bar (Preserves exact 46-column order) */}
+      <StudentImportExportBar
+        students={students}
+        grades={grades}
+        sections={sections}
+        onImportStudents={(imported, mode) => importStudentsBatch(imported, mode)}
+        onResetOfficial={resetStudentsToOfficialData}
+      />
+
       {/* Filter Bar */}
       <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs flex flex-col md:flex-row items-center gap-3">
         <div className="relative flex-1 w-full">
@@ -630,25 +644,88 @@ export const StudentsManagerView: React.FC = () => {
             {/* Profile Tab Body */}
             <div className="p-6 overflow-y-auto flex-1 space-y-4 text-xs">
               {profileActiveTab === "personal" && (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="p-4 rounded-2xl border border-slate-200 bg-slate-50/50 space-y-3">
-                    <h4 className="font-bold text-slate-900 border-b border-slate-200 pb-2">بيانات الطالب الشخصية</h4>
-                    <div className="space-y-1.5 text-slate-600">
-                      <div>تاريخ الميلاد: <strong className="text-slate-900 font-mono">{selectedStudent.birthDate}</strong> ({selectedStudent.birthPlace})</div>
-                      <div>الجنسية: <strong className="text-slate-900">{selectedStudent.nationality}</strong></div>
-                      <div>العنوان السكني: <strong className="text-slate-900">{selectedStudent.address}</strong></div>
-                      <div>تاريخ التسجيل: <strong className="text-slate-900 font-mono">{selectedStudent.enrollmentDate}</strong></div>
+                <div className="space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="p-4 rounded-2xl border border-slate-200 bg-slate-50/50 space-y-3">
+                      <h4 className="font-bold text-slate-900 border-b border-slate-200 pb-2 flex items-center justify-between">
+                        <span>بيانات الطالب الرسمية</span>
+                        {selectedStudent.excelRowId && (
+                          <span className="text-[10px] px-2 py-0.5 rounded-md bg-indigo-50 text-indigo-700 font-mono font-bold">
+                            الرقم التسلسلي في الكشف: #{selectedStudent.excelRowId}
+                          </span>
+                        )}
+                      </h4>
+                      <div className="space-y-1.5 text-slate-600">
+                        <div>الاسم الكامل: <strong className="text-slate-900">{selectedStudent.fullName}</strong></div>
+                        {selectedStudent.nisba && <div>النسبة: <strong className="text-slate-900">{selectedStudent.nisba}</strong></div>}
+                        {selectedStudent.kunya1 && <div>الكنية: <strong className="text-slate-900">{selectedStudent.kunya1}</strong></div>}
+                        {selectedStudent.idcardNumber && <div>رقم البطاقة الشخصية: <strong className="text-slate-900 font-mono">{selectedStudent.idcardNumber}</strong></div>}
+                        <div>تاريخ الميلاد: <strong className="text-slate-900 font-mono">{selectedStudent.birthDateRaw || selectedStudent.birthDate}</strong> ({selectedStudent.birthPlaceText || selectedStudent.birthPlace})</div>
+                        <div>الجنسية: <strong className="text-slate-900">{selectedStudent.nationality}</strong></div>
+                        <div>مكان الإقامة: <strong className="text-slate-900">{selectedStudent.residencePlace || selectedStudent.address}</strong></div>
+                        <div>العنوان التفصيلي: <strong className="text-slate-900">{selectedStudent.addressDetail || selectedStudent.address}</strong></div>
+                        {selectedStudent.currentSchool && <div>المدرسة السابقة/الحالية: <strong className="text-indigo-700">{selectedStudent.currentSchool}</strong></div>}
+                        {selectedStudent.talent && <div>المواهب والاهتمامات: <strong className="text-purple-700">{selectedStudent.talent}</strong></div>}
+                        {selectedStudent.notes && <div>ملاحظات التسجيل: <strong className="text-amber-800">{selectedStudent.notes}</strong></div>}
+                      </div>
+                    </div>
+
+                    <div className="p-4 rounded-2xl border border-slate-200 bg-slate-50/50 space-y-3">
+                      <h4 className="font-bold text-slate-900 border-b border-slate-200 pb-2">بيانات الأسرة وأولياء الأمور</h4>
+                      <div className="space-y-1.5 text-slate-600">
+                        <div>اسم الأب والجد: <strong className="text-slate-900">{selectedStudent.fatherNamePart || selectedStudent.familyInfo?.fatherName || "—"} {selectedStudent.grandfatherName || ""}</strong></div>
+                        <div>جوال الأب: <strong className="text-slate-900 font-mono">{selectedStudent.familyInfo?.fatherPhone || "—"}</strong></div>
+                        <div>اسم الأم: <strong className="text-slate-900">{selectedStudent.motherNamePart || selectedStudent.familyInfo?.motherName || "—"}</strong></div>
+                        <div>جوال الأم: <strong className="text-slate-900 font-mono">{selectedStudent.familyInfo?.motherPhone || "—"}</strong></div>
+                        {selectedStudent.guardianName1 && (
+                          <div className="pt-2 border-t border-slate-200">
+                            <span className="text-[10px] font-bold text-indigo-700 block">ولي الأمر الرئيسي (1):</span>
+                            <div>الاسم: <strong className="text-slate-900">{selectedStudent.guardianName1}</strong> ({selectedStudent.guardianRelation1 || "ولي أمر"})</div>
+                            <div>الهاتف: <strong className="text-slate-900 font-mono">{selectedStudent.guardianPhone1 || "—"}</strong> | المهنة: {selectedStudent.guardianJob1 || "—"}</div>
+                          </div>
+                        )}
+                        {selectedStudent.contactPerson2 && (
+                          <div className="pt-2 border-t border-slate-200">
+                            <span className="text-[10px] font-bold text-indigo-700 block">جهة الاتصال الإضافية (2):</span>
+                            <div>الاسم: <strong className="text-slate-900">{selectedStudent.contactPerson2} {selectedStudent.contactKunya2 || ""}</strong> ({selectedStudent.contactRelation2 || "قريب"})</div>
+                            <div>الهاتف: <strong className="text-slate-900 font-mono">{selectedStudent.contactPhone2 || "—"}</strong></div>
+                          </div>
+                        )}
+                      </div>
                     </div>
                   </div>
 
-                  <div className="p-4 rounded-2xl border border-slate-200 bg-slate-50/50 space-y-3">
-                    <h4 className="font-bold text-slate-900 border-b border-slate-200 pb-2">بيانات الأسرة والتواصل</h4>
-                    <div className="space-y-1.5 text-slate-600">
-                      <div>اسم الأب: <strong className="text-slate-900">{selectedStudent.familyInfo?.fatherName || "—"}</strong> ({selectedStudent.familyInfo?.fatherJob || "—"})</div>
-                      <div>جوال الأب: <strong className="text-slate-900 font-mono">{selectedStudent.familyInfo?.fatherPhone || "—"}</strong></div>
-                      <div>اسم الأم: <strong className="text-slate-900">{selectedStudent.familyInfo?.motherName || "—"}</strong> ({selectedStudent.familyInfo?.motherJob || "—"})</div>
-                      <div>جوال الأم: <strong className="text-slate-900 font-mono">{selectedStudent.familyInfo?.motherPhone || "—"}</strong></div>
-                      <div>جهة الاتصال في الطوارئ: <strong className="text-rose-700">{selectedStudent.familyInfo?.emergencyContactName || "—"} ({selectedStudent.familyInfo?.emergencyContactPhone || "—"})</strong></div>
+                  {/* Official Deliveries & SYOBIS Status */}
+                  <div className="p-4 rounded-2xl border border-slate-200 bg-slate-50/50">
+                    <h4 className="font-bold text-slate-900 mb-3 flex items-center gap-2">
+                      <ShieldCheck className="w-4 h-4 text-emerald-600" />
+                      <span>حالة التسليمات الرسمية والتوثيق (الكشف المعتمد)</span>
+                    </h4>
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                      <div className="p-2.5 bg-white rounded-xl border border-slate-200 flex items-center justify-between">
+                        <span className="text-[11px] text-slate-600">نظام سيوبيس (سبر):</span>
+                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${selectedStudent.syobisStatus ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-500"}`}>
+                          {selectedStudent.syobisStatus ? "مسجل (نعم)" : "غير مسجل (لا)"}
+                        </span>
+                      </div>
+                      <div className="p-2.5 bg-white rounded-xl border border-slate-200 flex items-center justify-between">
+                        <span className="text-[11px] text-slate-600">استلام اللباس:</span>
+                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${selectedStudent.receivedUniform ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-500"}`}>
+                          {selectedStudent.receivedUniform ? "تم الاستلام" : "لم يستلم"}
+                        </span>
+                      </div>
+                      <div className="p-2.5 bg-white rounded-xl border border-slate-200 flex items-center justify-between">
+                        <span className="text-[11px] text-slate-600">استلام الكتب:</span>
+                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${selectedStudent.receivedBooks ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-500"}`}>
+                          {selectedStudent.receivedBooks ? "تم الاستلام" : "لم يستلم"}
+                        </span>
+                      </div>
+                      <div className="p-2.5 bg-white rounded-xl border border-slate-200 flex items-center justify-between">
+                        <span className="text-[11px] text-slate-600">اشتراك المواصلات:</span>
+                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${selectedStudent.hasTransportation ? "bg-indigo-50 text-indigo-700" : "bg-slate-100 text-slate-500"}`}>
+                          {selectedStudent.hasTransportation ? "مشترك" : "غير مشترك"}
+                        </span>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -767,17 +844,44 @@ export const StudentsManagerView: React.FC = () => {
                   <div className="grid grid-cols-3 gap-3 text-slate-700">
                     <div className="p-3 bg-white rounded-xl border border-slate-200">
                       <span className="text-[10px] text-slate-400 block">إجمالي الرسوم الصافية</span>
-                      <strong className="text-slate-900">{(selectedStudent.finance?.netAmount ?? 0).toLocaleString()} ر.س</strong>
+                      <strong className="text-slate-900">{(selectedStudent.totalPayments || selectedStudent.finance?.netAmount || 0).toLocaleString()}</strong>
                     </div>
                     <div className="p-3 bg-white rounded-xl border border-slate-200">
                       <span className="text-[10px] text-slate-400 block">المبلغ المسدد</span>
-                      <strong className="text-emerald-700">{(selectedStudent.finance?.paidAmount ?? 0).toLocaleString()} ر.س</strong>
+                      <strong className="text-emerald-700">{((selectedStudent.firstPayment || 0) + (selectedStudent.secondPayment || 0) || selectedStudent.finance?.paidAmount || 0).toLocaleString()}</strong>
                     </div>
                     <div className="p-3 bg-white rounded-xl border border-slate-200">
                       <span className="text-[10px] text-slate-400 block">المتبقي المطلوب</span>
-                      <strong className="text-rose-700">{(selectedStudent.finance?.balance ?? 0).toLocaleString()} ر.س</strong>
+                      <strong className="text-rose-700">{(selectedStudent.remainingBalance !== undefined ? selectedStudent.remainingBalance : (selectedStudent.finance?.balance ?? 0)).toLocaleString()}</strong>
                     </div>
                   </div>
+
+                  {/* Official Installments Breakdown */}
+                  {(selectedStudent.firstPayment !== undefined || selectedStudent.transportationFee !== undefined) && (
+                    <div className="p-3 bg-white rounded-xl border border-slate-200 space-y-2">
+                      <span className="text-[10px] font-bold text-slate-500 block">تفصيل الدفعات والرسوم حسب الكشف الرسمي:</span>
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-[11px]">
+                        <div className="p-2 bg-slate-50 rounded-lg">
+                          <span className="text-slate-400 block text-[9px]">الدفعة الأولى:</span>
+                          <strong className="text-slate-800">{selectedStudent.firstPayment || 0}</strong>
+                          {selectedStudent.firstPaymentDate && <span className="text-[9px] text-slate-500 block">{selectedStudent.firstPaymentDate}</span>}
+                        </div>
+                        <div className="p-2 bg-slate-50 rounded-lg">
+                          <span className="text-slate-400 block text-[9px]">الدفعة الثانية:</span>
+                          <strong className="text-slate-800">{selectedStudent.secondPayment || 0}</strong>
+                          {selectedStudent.secondPaymentDate && <span className="text-[9px] text-slate-500 block">{selectedStudent.secondPaymentDate}</span>}
+                        </div>
+                        <div className="p-2 bg-slate-50 rounded-lg">
+                          <span className="text-slate-400 block text-[9px]">أجور النقل:</span>
+                          <strong className="text-slate-800">{selectedStudent.transportationFee || 0}</strong>
+                        </div>
+                        <div className="p-2 bg-slate-50 rounded-lg">
+                          <span className="text-slate-400 block text-[9px]">اللباس والكتب:</span>
+                          <strong className="text-slate-800">{(selectedStudent.uniformFee || 0) + (selectedStudent.booksFeeVal || 0)}</strong>
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
             </div>

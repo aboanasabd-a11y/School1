@@ -118,6 +118,57 @@ export interface Student {
   address: string;
   bloodType: 'A+' | 'A-' | 'B+' | 'B-' | 'AB+' | 'AB-' | 'O+' | 'O-';
   
+  // Official Form Extended Fields
+  kunya1?: string;             // الكنية 1
+  firstName?: string;          // الاسم
+  fatherNamePart?: string;     // الأب
+  grandfatherName?: string;    // الجد
+  motherNamePart?: string;     // الأم
+  academicGradeText?: string;  // الصف
+  nisba?: string;              // النسبة
+  sectionNameText?: string;    // الشعبة (أولى، ثانية، إلخ)
+  shift?: string;              // الفوج (صباحي / مسائي)
+  birthDateRaw?: string;       // تاريخ الولادة
+  birthPlaceText?: string;     // مكان الولادة
+  residencePlace?: string;     // مكان الإقامة
+  addressDetail?: string;      // العنوان التفصيلي
+  currentSchool?: string;      // اسم المدرسة
+  gpaScore?: number;           // المعدل
+  notes?: string;              // ملاحظات
+  talent?: string;             // الموهبة
+  healthStatus?: string;       // الحالة الصحية
+  idcardNumber?: string;       // idcard / الهوية الشخصية
+  excelRowId?: number;         // id (الترتيب الرقمي في الكشف)
+  
+  // Contacts
+  guardianName1?: string;      // اسم ولي الأمر
+  guardianPhone1?: string;     // رقم الهاتف 1
+  guardianJob1?: string;       // العمل 1
+  guardianRelation1?: string;  // صلته بالطالب 1
+  contactPerson2?: string;     // اسم شخص آخر 2
+  contactKunya2?: string;      // الكنية 2
+  contactPhone2?: string;      // رقم الهاتف 2
+  contactJob2?: string;        // العمل 2
+  contactRelation2?: string;   // صلته بالطالب 2
+  
+  // Finance & Logistics
+  firstPayment?: number;       // الدفعة الأولى
+  firstPaymentDate?: string;   // التاريخ 1
+  secondPayment?: number;      // الدفعة الثانية
+  secondPaymentDate?: string;  // التاريخ 2
+  totalPayments?: number;      // مجموع الدفعات
+  transportationFee?: number;  // ثمن المواصلات
+  uniformFee?: number;         // اللباس المدرسي
+  booksFeeVal?: number;        // الكتب المدرسية
+  remainingBalance?: number;   // الباقي
+  syobisStatus?: boolean;      // syobis
+  receivedBooks?: boolean;     // تسليم كتب
+  receivedUniform?: boolean;   // تسليم لباس
+  hasTransportation?: boolean; // المواصلات
+  idCardFace1Count?: number;   // صورة عن الهوية الوجه الاول
+  idCardFace2Count?: number;   // صورة عن الهوية الوجه الثاني
+  lastReportCardCount?: number;// صورة عن اخر جلاء او شهادة
+
   // Academic Placement
   gradeId: string;
   gradeName?: string;
