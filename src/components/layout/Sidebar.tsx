@@ -2,26 +2,17 @@ import React from "react";
 import { useSchool } from "../../context/SchoolContext";
 import { ActiveModule } from "../../types";
 import {
-  LayoutDashboard,
-  Building2,
-  Users,
+  Home,
   GraduationCap,
-  Award,
-  CalendarCheck,
-  Bus,
-  Megaphone,
-  CalendarDays,
-  FileText,
-  CreditCard,
+  Users,
+  BookOpen,
+  Calendar,
+  ClipboardCheck,
+  BarChart2,
+  FolderLock,
   Settings,
-  Sparkles,
-  ShieldCheck,
   X,
-  School,
-  DollarSign,
-  ShieldAlert,
-  UserCheck,
-  Navigation,
+  Bus,
 } from "lucide-react";
 
 export type TabType = ActiveModule;
@@ -39,145 +30,77 @@ export const Sidebar: React.FC<SidebarProps> = ({
   isOpen,
   onClose,
 }) => {
-  const {
-    activeModule,
-    setActiveModule,
-    currentUser,
-    students,
-    staff,
-    exams,
-    busRoutes,
-    announcements,
-  } = useSchool();
+  const { activeModule, setActiveModule } = useSchool();
 
   const currentActive = propActiveTab || activeModule || "dashboard";
+
   const handleSelect = (tab: TabType) => {
     if (propSetActiveTab) propSetActiveTab(tab);
     setActiveModule(tab);
     onClose();
   };
 
-  const portalItems = [
-    {
-      id: "portal_super_admin" as TabType,
-      label: "بوابة المدير العام (إشراف كامل)",
-      icon: ShieldAlert,
-      tag: "المدير",
-      color: "text-amber-400",
-      activeBg: "bg-amber-500/20 text-amber-300 border-r-2 border-amber-400",
-    },
-    {
-      id: "portal_teacher" as TabType,
-      label: "بوابة المعلم (متابعة ورصد)",
-      icon: GraduationCap,
-      tag: "المعلم",
-      color: "text-blue-400",
-      activeBg: "bg-blue-500/20 text-blue-300 border-r-2 border-blue-400",
-    },
-    {
-      id: "portal_accountant" as TabType,
-      label: "بوابة المحاسب (أقساط وسندات)",
-      icon: DollarSign,
-      tag: "المحاسب",
-      color: "text-indigo-400",
-      activeBg: "bg-indigo-500/20 text-indigo-300 border-r-2 border-indigo-400",
-    },
-    {
-      id: "portal_parent" as TabType,
-      label: "بوابة ولي الأمر (متابعة وملاحظات)",
-      icon: Users,
-      tag: "ولي أمر",
-      color: "text-purple-400",
-      activeBg: "bg-purple-500/20 text-purple-300 border-r-2 border-purple-400",
-    },
-    {
-      id: "portal_bus_supervisor" as TabType,
-      label: "بوابة مشرف الحافلات (GPS)",
-      icon: Bus,
-      tag: "حافلات",
-      color: "text-amber-400",
-      activeBg: "bg-amber-500/20 text-amber-300 border-r-2 border-amber-400",
-    },
-  ];
-
-  const navigationItems = [
+  // Vertical navigation menu items matching the image right sidebar exactly:
+  // 1. الرئيسية (Home)
+  // 2. الدرجات (Grades)
+  // 3. الطلاب (Students)
+  // 4. الكادر التدريسي (Staff / Teachers)
+  // 5. الجدول الأسبوعي (Weekly Timetable)
+  // 6. الغياب والحضور (Attendance)
+  // 7. التقارير والإحصائيات (Reports & Stats)
+  // 8. الملفات والإعدادات (Files & Settings / School)
+  // 9. الإعدادات (Settings)
+  // 10. المواصلات وحافلات GPS (Transportation)
+  const menuItems = [
     {
       id: "dashboard" as TabType,
-      label: "لوحة التحكم العامة",
-      icon: LayoutDashboard,
-      badge: null,
-    },
-    {
-      id: "students" as TabType,
-      label: "الطلاب والملفات",
-      icon: Users,
-      badge: students.length,
-      badgeColor: "bg-blue-900/60 text-blue-300",
-    },
-    {
-      id: "staff" as TabType,
-      label: "الكادر التعليمي",
-      icon: GraduationCap,
-      badge: staff.length,
-      badgeColor: "bg-emerald-950/70 text-emerald-300",
-    },
-    {
-      id: "school" as TabType,
-      label: "الفصول والشعب",
-      icon: Building2,
-      badge: null,
+      label: "الرئيسية",
+      icon: Home,
     },
     {
       id: "exams" as TabType,
-      label: "الامتحانات والعلامات",
-      icon: Award,
-      badge: exams.length,
-      badgeColor: "bg-purple-950/70 text-purple-300",
+      label: "الدرجات",
+      icon: BookOpen,
     },
     {
-      id: "attendance" as TabType,
-      label: "الحضور والسلوك",
-      icon: CalendarCheck,
-      badge: null,
+      id: "students" as TabType,
+      label: "الطلاب",
+      icon: Users,
     },
     {
-      id: "transport" as TabType,
-      label: "النقل المدرسي GPS",
-      icon: Bus,
-      badge: `${busRoutes.length}`,
-      badgeColor: "bg-amber-950/70 text-amber-300",
-    },
-    {
-      id: "communication" as TabType,
-      label: "الإعلانات والمراسلة",
-      icon: Megaphone,
-      badge: announcements.length,
-      badgeColor: "bg-rose-950/70 text-rose-300",
+      id: "staff" as TabType,
+      label: "الكادر التدريسي",
+      icon: GraduationCap,
     },
     {
       id: "timetable" as TabType,
-      label: "الجدول والدوام",
-      icon: CalendarDays,
-      badge: null,
+      label: "الجدول الأسبوعي",
+      icon: Calendar,
+    },
+    {
+      id: "attendance" as TabType,
+      label: "الغياب والحضور",
+      icon: ClipboardCheck,
     },
     {
       id: "reports" as TabType,
-      label: "التقارير والكشوفات",
-      icon: FileText,
-      badge: null,
+      label: "التقارير والإحصائيات",
+      icon: BarChart2,
     },
     {
-      id: "finance" as TabType,
-      label: "المالية والأقساط",
-      icon: CreditCard,
-      badge: null,
+      id: "school" as TabType,
+      label: "الملفات والإعدادات",
+      icon: FolderLock,
+    },
+    {
+      id: "transport" as TabType,
+      label: "المواصلات وحافلات GPS",
+      icon: Bus,
     },
     {
       id: "settings" as TabType,
-      label: "إعدادات النظام والأمان",
+      label: "الإعدادات",
       icon: Settings,
-      badge: "Azure",
-      badgeColor: "bg-sky-950/70 text-sky-300",
     },
   ];
 
@@ -191,129 +114,58 @@ export const Sidebar: React.FC<SidebarProps> = ({
         />
       )}
 
+      {/* Vertical Sidebar matching the deep navy background #0a2540 / #0b3b60 */}
       <aside
-        className={`fixed lg:static inset-y-0 right-0 z-50 w-60 bg-slate-800 text-slate-200 border-l border-slate-700 flex flex-col shrink-0 transition-transform duration-200 ease-in-out ${
+        className={`fixed lg:static inset-y-0 right-0 z-50 w-52 sm:w-56 bg-[#0a2744] text-white flex flex-col shrink-0 border-l border-[#071d33] transition-transform duration-200 ease-in-out select-none ${
           isOpen ? "translate-x-0" : "translate-x-full lg:translate-x-0"
         }`}
       >
-        {/* Brand Header */}
-        <div className="h-14 px-4 border-b border-slate-700 flex items-center justify-between shrink-0">
-          <div className="flex items-center gap-2">
-            <div className="w-7 h-7 rounded-md bg-blue-600 flex items-center justify-center text-white font-bold text-sm shadow-xs">
-              <School className="w-4 h-4" />
-            </div>
-            <div>
-              <div className="text-sm font-bold text-white leading-tight">
-                إتقان <span className="text-sky-400">التعليمي</span>
-              </div>
-              <div className="text-[10px] text-slate-400">نظام إدارة المدارس المتكامل</div>
-            </div>
-          </div>
+        {/* Mobile close bar */}
+        <div className="h-10 px-3 flex items-center justify-between border-b border-white/10 lg:hidden">
+          <span className="text-xs font-bold text-sky-200">القائمة الرئيسية</span>
           <button
             onClick={onClose}
-            className="p-1 rounded text-slate-400 hover:text-white hover:bg-slate-700 lg:hidden"
+            className="p-1 rounded text-white/70 hover:text-white hover:bg-white/10"
           >
             <X className="w-4 h-4" />
           </button>
         </div>
 
-        {/* Navigation List */}
-        <nav className="flex-1 overflow-y-auto p-2 space-y-3">
-          {/* SECTION 1: 5 INDEPENDENT PORTALS */}
-          <div className="space-y-1">
-            <div className="px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-amber-400/90 flex items-center justify-between">
-              <span>البوابات الـ 5 المستقلة</span>
-              <span className="text-[9px] bg-amber-400/10 text-amber-300 px-1.5 py-0.2 rounded">صلاحيات</span>
-            </div>
+        {/* Menu Items List */}
+        <nav className="flex-1 py-2 overflow-y-auto space-y-0.5">
+          {menuItems.map((item) => {
+            const Icon = item.icon;
+            const isActive = currentActive === item.id;
 
-            {portalItems.map((item) => {
-              const Icon = item.icon;
-              const isActive = currentActive === item.id;
-
-              return (
-                <button
-                  key={item.id}
-                  onClick={() => handleSelect(item.id)}
-                  className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-md text-[12px] font-bold transition-all ${
-                    isActive
-                      ? `${item.activeBg} font-bold shadow-xs`
-                      : "text-slate-300 hover:bg-slate-700/60 hover:text-white"
-                  }`}
-                >
-                  <div className="flex items-center gap-2 min-w-0">
-                    <Icon
-                      className={`w-3.5 h-3.5 shrink-0 ${
-                        isActive ? item.color : "text-slate-400"
-                      }`}
-                    />
-                    <span className="truncate">{item.label}</span>
-                  </div>
-                  <span className="text-[9px] px-1 py-0.2 rounded bg-slate-700/80 text-slate-300 shrink-0 font-normal">
-                    {item.tag}
-                  </span>
-                </button>
-              );
-            })}
-          </div>
-
-          {/* SECTION 2: CORE SYSTEM MODULES */}
-          <div className="space-y-0.5 pt-2 border-t border-slate-700/60">
-            <div className="px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-400">
-              الوحدات والأنظمة العامة
-            </div>
-
-            {navigationItems.map((item) => {
-              const Icon = item.icon;
-              const isActive = currentActive === item.id;
-
-              return (
-                <button
-                  key={item.id}
-                  onClick={() => handleSelect(item.id)}
-                  className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-md text-[12px] font-medium transition-colors ${
-                    isActive
-                      ? "bg-slate-700 text-white font-semibold shadow-xs"
-                      : "text-slate-300 hover:bg-slate-700/60 hover:text-white"
-                  }`}
-                >
-                  <div className="flex items-center gap-2.5 min-w-0">
-                    <Icon
-                      className={`w-4 h-4 shrink-0 ${
-                        isActive ? "text-sky-400" : "text-slate-400"
-                      }`}
-                    />
-                    <span className="truncate">{item.label}</span>
-                  </div>
-
-                  {item.badge !== null && (
-                    <span
-                      className={`text-[10px] px-1.5 py-0.2 rounded font-semibold shrink-0 ${
-                        isActive
-                          ? "bg-sky-500/20 text-sky-300"
-                          : item.badgeColor || "bg-slate-700 text-slate-300"
-                      }`}
-                    >
-                      {item.badge}
-                    </span>
-                  )}
-                </button>
-              );
-            })}
-          </div>
+            return (
+              <button
+                key={item.id}
+                onClick={() => handleSelect(item.id)}
+                className={`w-full flex items-center justify-between px-4 py-3 text-xs font-bold transition-colors cursor-pointer text-right group ${
+                  isActive
+                    ? "bg-[#0284c7] text-white shadow-inner font-extrabold"
+                    : "text-slate-200 hover:bg-white/5 hover:text-white"
+                }`}
+              >
+                <div className="flex items-center gap-3">
+                  <Icon
+                    className={`w-4 h-4 shrink-0 transition-transform group-hover:scale-110 ${
+                      isActive ? "text-white" : "text-sky-300/80"
+                    }`}
+                  />
+                  <span className="text-[12.5px] leading-tight">{item.label}</span>
+                </div>
+                {isActive && (
+                  <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
+                )}
+              </button>
+            );
+          })}
         </nav>
 
-        {/* Bottom Cloud Status */}
-        <div className="p-2.5 border-t border-slate-700 bg-slate-800/80 text-[11px] text-slate-400 shrink-0">
-          <div className="flex items-center justify-between">
-            <span className="flex items-center gap-1 text-slate-300">
-              <ShieldCheck className="w-3.5 h-3.5 text-sky-400" />
-              سحابة Azure
-            </span>
-            <span className="text-emerald-400 font-mono font-semibold flex items-center gap-1">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-              متصل
-            </span>
-          </div>
+        {/* Bottom subtle watermark */}
+        <div className="p-3 border-t border-white/10 text-center text-[10px] text-white/40">
+          <span>نظام الإدارة المدرسية الموحد</span>
         </div>
       </aside>
     </>

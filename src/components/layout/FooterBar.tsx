@@ -2,25 +2,29 @@ import React from "react";
 import { useSchool } from "../../context/SchoolContext";
 
 export const FooterBar: React.FC = () => {
-  const { backups } = useSchool();
+  const { schoolInfo } = useSchool();
 
   return (
-    <footer className="footer-bar no-print shrink-0">
-      <div className="flex items-center gap-2">
-        <span>الحالة:</span>
-        <span className="text-emerald-600 font-bold flex items-center gap-1.5">
-          <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block animate-pulse" />
-          متصل بالنظام السحابي Microsoft Azure GCC
+    <footer className="bg-[#e2e8f0] text-slate-800 text-xs px-4 py-2 flex items-center justify-between border-t border-slate-300 shrink-0 select-none">
+      {/* RIGHT SIDE (in RTL): Iraqi Flag and Motto */}
+      <div className="flex items-center gap-2 font-bold text-slate-800">
+        {/* Iraqi Flag representation matching image */}
+        <div className="w-6 h-4 border border-slate-400 rounded-[2px] overflow-hidden flex flex-col shadow-2xs">
+          <div className="h-1/3 bg-[#dc2626]" />
+          <div className="h-1/3 bg-white flex items-center justify-center">
+            <span className="text-[6px] font-black text-[#16a34a] leading-none">★</span>
+          </div>
+          <div className="h-1/3 bg-[#0f172a]" />
+        </div>
+        <span className="text-xs font-bold text-slate-900">
+          {schoolInfo.motto || "بالعلم نبني المستقبل"}
         </span>
       </div>
-      <div className="flex items-center gap-3 sm:gap-6 text-[11px] text-slate-500">
-        <span className="hidden sm:inline">
-          آخر نسخة احتياطية: {backups[0]?.timestamp ? "منذ قليل" : "منذ 12 دقيقة"}
-        </span>
-        <span className="hidden md:inline">
-          تشفير البيانات: <strong className="text-slate-700 font-mono">AES-256 نشط</strong>
-        </span>
-        <span className="font-semibold text-slate-700">الإصدار 4.2.0 المؤسسي</span>
+
+      {/* LEFT SIDE (in RTL): Location / Ministry / Directorate */}
+      <div className="flex items-center gap-2 text-slate-600 text-[11px] font-medium">
+        <span className="w-1.5 h-1.5 rounded-full bg-sky-600 inline-block" />
+        <span>{schoolInfo.location || "وزارة التربية - بغداد"}</span>
       </div>
     </footer>
   );

@@ -18,6 +18,7 @@ import {
   AuditLog,
   SystemBackup,
   UserAccount,
+  SchoolInfo,
 } from "../types";
 
 export const initialAcademicYears: AcademicYear[] = [
@@ -1501,6 +1502,29 @@ export const initialBackups: SystemBackup[] = [
     status: "synced",
   },
 ];
+
+export const initialSchoolInfo: SchoolInfo = {
+  schoolName: "متوسطة الرافدين للبنين",
+  directorate: "المديرية العامة لتربية بغداد",
+  ministry: "جمهورية العراق - وزارة التربية",
+  country: "جمهورية العراق",
+  location: "وزارة التربية - بغداد",
+  logoUrl: "", // uses Iraqi emblem & school icon
+  principalName: "أ. حيدر جاسم كاظم",
+  phone: "+964 770 123 4567",
+  email: "info@alrafidain-school.iq",
+  address: "بغداد - الكرخ - حي الجامعة",
+  motto: "بالعلم نبني المستقبل",
+  developerName: "Ahmedpc",
+  developerUrl: "https://ahmedpc.iq",
+  developerSocials: {
+    youtube: "https://youtube.com",
+    facebook: "https://facebook.com",
+    telegram: "https://t.me",
+    tiktok: "https://tiktok.com",
+    instagram: "https://instagram.com",
+  },
+};
 
 export const userProfilesList: UserAccount[] = [
   {

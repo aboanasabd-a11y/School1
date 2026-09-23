@@ -21,6 +21,7 @@ import { AccountantPortal } from "./components/portals/AccountantPortal";
 import { ParentPortal } from "./components/portals/ParentPortal";
 import { BusSupervisorPortal } from "./components/portals/BusSupervisorPortal";
 import { SmartLinksModal } from "./components/links/SmartLinksModal";
+import { PushNotificationToast } from "./components/common/PushNotificationToast";
 
 const MainContent: React.FC = () => {
   const {
@@ -142,6 +143,9 @@ const MainContent: React.FC = () => {
 
         {/* Global Smart Links Modal */}
         <SmartLinksModal />
+
+        {/* Real-time Push Notification Floating Toast */}
+        <PushNotificationToast />
       </div>
     </div>
   );

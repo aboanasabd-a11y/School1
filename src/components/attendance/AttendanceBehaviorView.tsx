@@ -17,6 +17,7 @@ import {
   Search,
   Sparkles,
   X,
+  Bell,
 } from "lucide-react";
 
 export const AttendanceBehaviorView: React.FC = () => {
@@ -256,16 +257,17 @@ export const AttendanceBehaviorView: React.FC = () => {
             <div className="flex items-center gap-2 w-full md:w-auto justify-end">
               <button
                 onClick={() => handleMarkAll("present")}
-                className="px-3 py-2 rounded-xl text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100 transition-colors"
+                className="px-3 py-2 rounded-xl text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100 transition-colors cursor-pointer"
               >
                 تحديد الكل حاضر
               </button>
               <button
                 onClick={handleSaveAttendance}
-                className="px-5 py-2 rounded-xl text-xs font-bold bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm flex items-center gap-1.5 transition-all"
+                className="px-5 py-2 rounded-xl text-xs font-bold bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm flex items-center gap-1.5 transition-all cursor-pointer"
+                title="حفظ وإرسال تنبيهات الدفع الفورية لأولياء الأمور والإدارة بحالات الغياب والتأخر"
               >
                 <Save className="w-4 h-4" />
-                اعتماد وحفظ السجل
+                <span>اعتماد السجل وإرسال تنبيهات الدفع</span>
               </button>
             </div>
           </div>

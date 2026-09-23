@@ -21,7 +21,11 @@ import {
   UserAccount,
   UserRole,
   ActiveModule,
+  SchoolInfo,
+  PushNotificationItem,
+  NotificationSettings,
 } from "../types";
+import { playNotificationSound } from "../utils/sound";
 import {
   initialAcademicYears,
   initialGrades,
@@ -42,6 +46,7 @@ import {
   initialAuditLogs,
   initialBackups,
   userProfilesList,
+  initialSchoolInfo,
 } from "../data/initialData";
 
 interface SchoolContextType {
@@ -74,6 +79,10 @@ interface SchoolContextType {
   payments: PaymentRecord[];
   auditLogs: AuditLog[];
   backups: SystemBackup[];
+  
+  // School Profile & Developer Branding
+  schoolInfo: SchoolInfo;
+  updateSchoolInfo: (info: Partial<SchoolInfo>) => void;
   
   // Selected filter states
   selectedYear: string;
@@ -151,10 +160,33 @@ interface SchoolContextType {
 
   // System, AI & Backup
   addAuditLog: (action: string, module: string, details: string, severity?: 'info' | 'warning' | 'critical') => void;
-  createEncryptedBackup: () => void;
+  createEncryptedBackup: (customProvider?: SystemBackup['cloudProvider']) => void;
   exportDatabaseJson: () => string;
   importDatabaseJson: (jsonString: string) => boolean;
+  restoreFromBackup: (backupId: string) => boolean;
+  deleteBackup: (backupId: string) => void;
   resetToDefaultData: () => void;
+
+  // Push Notifications System
+  pushNotifications: PushNotificationItem[];
+  unreadPushCount: number;
+  notificationSettings: NotificationSettings;
+  updateNotificationSettings: (settings: Partial<NotificationSettings>) => void;
+  requestPushPermission: () => Promise<NotificationPermission>;
+  triggerPushNotification: (params: {
+    title: string;
+    body: string;
+    type: PushNotificationItem['type'];
+    priority?: PushNotificationItem['priority'];
+    senderName?: string;
+    targetUserId?: string;
+    actionModule?: ActiveModule;
+    metadata?: Record<string, any>;
+  }) => void;
+  markPushAsRead: (id: string) => void;
+  markAllPushAsRead: () => void;
+  clearPushNotification: (id: string) => void;
+  clearAllPushNotifications: () => void;
 }
 
 const SchoolContext = createContext<SchoolContextType | undefined>(undefined);
@@ -184,6 +216,154 @@ export const SchoolProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const [payments, setPayments] = useState<PaymentRecord[]>(initialPayments);
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>(initialAuditLogs);
   const [backups, setBackups] = useState<SystemBackup[]>(initialBackups);
+  const [schoolInfo, setSchoolInfo] = useState<SchoolInfo>(initialSchoolInfo);
+
+  // Push Notifications State & Preferences
+  const [notificationSettings, setNotificationSettings] = useState<NotificationSettings>({
+    pushEnabled: true,
+    soundEnabled: true,
+    notifyOnMessages: true,
+    notifyOnAttendanceAlerts: true,
+    notifyOnAnnouncements: true,
+    notifyOnBusArrivals: true,
+    browserPermission: typeof window !== "undefined" && "Notification" in window ? Notification.permission : "unsupported",
+  });
+
+  const [pushNotifications, setPushNotifications] = useState<PushNotificationItem[]>([
+    {
+      id: "notif-init-1",
+      title: "رسالة جديدة في بوابة التواصل",
+      body: "أ. فاطمة الزهراء الشامي: السلام عليكم دكتور، تم استكمال رصد درجات الشهر الأول لكافة الشعب.",
+      timestamp: "منذ 10 دقائق",
+      type: "message",
+      priority: "important",
+      isRead: false,
+      senderName: "أ. فاطمة الزهراء الشامي",
+      actionModule: "communication",
+    },
+    {
+      id: "notif-init-2",
+      title: "تنبيه غياب طالب في الحضور اليومي",
+      body: "تم رصد غياب الطالب يوسف عمر عبد الرحيم عن الدوام المدرسي اليوم دون إشعار مسبق.",
+      timestamp: "منذ 35 دقيقة",
+      type: "attendance",
+      priority: "urgent",
+      isRead: false,
+      senderName: "نظام الحضور والغياب",
+      actionModule: "attendance",
+    },
+    {
+      id: "notif-init-3",
+      title: "تعميم وزاري رسمي عاجل",
+      body: "المديرية العامة للتربية: اعتماد خطة الامتحانات الشفهية والتحريرية للفصل الدراسي الحالي.",
+      timestamp: "اليوم 08:30 ص",
+      type: "announcement",
+      priority: "normal",
+      isRead: true,
+      senderName: "المديرية العامة للتربية",
+      actionModule: "communication",
+    },
+  ]);
+
+  const unreadPushCount = pushNotifications.filter((n) => !n.isRead).length;
+
+  const updateNotificationSettings = (settings: Partial<NotificationSettings>) => {
+    setNotificationSettings((prev) => ({ ...prev, ...settings }));
+  };
+
+  const requestPushPermission = async (): Promise<NotificationPermission> => {
+    if (typeof window === "undefined" || !("Notification" in window)) {
+      return "denied";
+    }
+    try {
+      const permission = await Notification.requestPermission();
+      setNotificationSettings((prev) => ({ ...prev, browserPermission: permission }));
+      return permission;
+    } catch (e) {
+      console.error("Error requesting notification permission:", e);
+      return "denied";
+    }
+  };
+
+  const triggerPushNotification = (params: {
+    title: string;
+    body: string;
+    type: PushNotificationItem["type"];
+    priority?: PushNotificationItem["priority"];
+    senderName?: string;
+    targetUserId?: string;
+    actionModule?: ActiveModule;
+    metadata?: Record<string, any>;
+  }) => {
+    // Check if user disabled notifications for this category
+    if (!notificationSettings.pushEnabled) return;
+    if (params.type === "message" && !notificationSettings.notifyOnMessages) return;
+    if (params.type === "attendance" && !notificationSettings.notifyOnAttendanceAlerts) return;
+    if (params.type === "announcement" && !notificationSettings.notifyOnAnnouncements) return;
+    if (params.type === "bus" && !notificationSettings.notifyOnBusArrivals) return;
+
+    const newNotif: PushNotificationItem = {
+      id: `push-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+      title: params.title,
+      body: params.body,
+      timestamp: "الآن",
+      type: params.type,
+      priority: params.priority || "normal",
+      isRead: false,
+      senderName: params.senderName,
+      targetUserId: params.targetUserId,
+      actionModule: params.actionModule || "dashboard",
+      metadata: params.metadata,
+    };
+
+    setPushNotifications((prev) => [newNotif, ...prev]);
+
+    // Play synthesized sound if enabled
+    if (notificationSettings.soundEnabled) {
+      const soundType = params.type === "message" ? "message" : params.type === "attendance" ? "attendance" : "alert";
+      playNotificationSound(soundType);
+    }
+
+    // Trigger browser native web push notification if permitted
+    try {
+      if (
+        typeof window !== "undefined" &&
+        "Notification" in window &&
+        Notification.permission === "granted"
+      ) {
+        new Notification(params.title, {
+          body: params.body,
+          icon: "/favicon.ico",
+          tag: newNotif.id,
+        });
+      }
+    } catch (err) {
+      console.debug("Web Notification API call:", err);
+    }
+  };
+
+  const markPushAsRead = (id: string) => {
+    setPushNotifications((prev) =>
+      prev.map((n) => (n.id === id ? { ...n, isRead: true } : n))
+    );
+  };
+
+  const markAllPushAsRead = () => {
+    setPushNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
+  };
+
+  const clearPushNotification = (id: string) => {
+    setPushNotifications((prev) => prev.filter((n) => n.id !== id));
+  };
+
+  const clearAllPushNotifications = () => {
+    setPushNotifications([]);
+  };
+
+  const updateSchoolInfo = (info: Partial<SchoolInfo>) => {
+    setSchoolInfo((prev) => ({ ...prev, ...info }));
+    addAuditLog("تحديث بيانات المدرسة وهوية المطور", "إعدادات المدرسة", "تم تعديل اسم المدرسة أو الشعار أو بيانات المطور");
+  };
 
   const [selectedYear, setSelectedYear] = useState<string>("year-2025-2026");
   const [selectedGradeId, setSelectedGradeId] = useState<string | null>(null);
@@ -369,6 +549,7 @@ export const SchoolProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         if (parsed.payments) setPayments(parsed.payments);
         if (parsed.auditLogs) setAuditLogs(parsed.auditLogs);
         if (parsed.backups) setBackups(parsed.backups);
+        if (parsed.schoolInfo) setSchoolInfo(parsed.schoolInfo);
       }
     } catch (e) {
       console.error("Failed loading stored data:", e);
@@ -396,6 +577,7 @@ export const SchoolProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         payments,
         auditLogs,
         backups,
+        schoolInfo,
       };
       localStorage.setItem(STORAGE_KEY, JSON.stringify(stateToSave));
     } catch (e) {
@@ -423,6 +605,7 @@ export const SchoolProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     payments,
     auditLogs,
     backups,
+    schoolInfo,
   ]);
 
   const addAuditLog = (action: string, module: string, details: string, severity: 'info' | 'warning' | 'critical' = 'info') => {
@@ -642,6 +825,26 @@ export const SchoolProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       ...prev.filter((item) => !(item.date === date && studentIds.has(item.studentId))),
     ]);
     addAuditLog("تسجيل حضور جماعي", "الحضور والسلوك", `تم رصد حضور ${records.length} طالباً بتاريخ ${date}`);
+
+    // Trigger Push Notifications for important attendance updates (absence & late)
+    const absentOrLate = records.filter((r) => r.status === "absent" || r.status === "late");
+    if (absentOrLate.length > 0) {
+      absentOrLate.forEach((r) => {
+        const studentObj = students.find((s) => s.id === r.studentId);
+        const studentName = studentObj?.fullName || "الطالب";
+        const statusText = r.status === "absent" ? "غياب عن الدوام المدرسي" : `تأخر صباحي (${r.lateMinutes || 15} دقيقة)`;
+        
+        triggerPushNotification({
+          title: `تنبيه حضور: ${statusText}`,
+          body: `تم تسجيل ${statusText} للطالب ${studentName} بتاريخ ${date}. يرجى التحقق والتواصل عند الحاجة.`,
+          type: "attendance",
+          priority: r.status === "absent" ? "urgent" : "important",
+          senderName: "قسم شؤون الطلاب والغياب",
+          actionModule: "attendance",
+          metadata: { studentId: r.studentId, date, status: r.status },
+        });
+      });
+    }
   };
 
   const addBehaviorRecord = (behData: Omit<BehaviorRecord, "id">) => {
@@ -724,6 +927,18 @@ export const SchoolProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     };
     setDirectMessages((prev) => [newMsg, ...prev]);
     addAuditLog("إرسال رسالة مباشرة", "المراسلات والتواصل", `رسالة إلى ${newMsg.receiverName}: ${subject}`);
+
+    // Trigger Push Notification for incoming message
+    triggerPushNotification({
+      title: `رسالة جديدة من ${currentUser.fullName}`,
+      body: `موضوع: ${subject} - "${content.substring(0, 75)}${content.length > 75 ? '...' : ''}"`,
+      type: "message",
+      priority: "important",
+      senderName: currentUser.fullName,
+      targetUserId: receiverId,
+      actionModule: "communication",
+      metadata: { messageId: newMsg.id, subject },
+    });
   };
 
   const replyDirectMessage = (messageId: string, content: string) => {
@@ -739,6 +954,21 @@ export const SchoolProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         m.id === messageId ? { ...m, replies: [...m.replies, replyItem] } : m
       )
     );
+
+    // Trigger Push Notification for reply
+    const targetMessage = directMessages.find((m) => m.id === messageId);
+    const otherParticipantId = targetMessage?.senderId === currentUser.id ? targetMessage?.receiverId : targetMessage?.senderId;
+    
+    triggerPushNotification({
+      title: `رد جديد من ${currentUser.fullName}`,
+      body: `"${content.substring(0, 75)}${content.length > 75 ? '...' : ''}"`,
+      type: "message",
+      priority: "normal",
+      senderName: currentUser.fullName,
+      targetUserId: otherParticipantId,
+      actionModule: "communication",
+      metadata: { messageId },
+    });
   };
 
   // Timetable
@@ -801,20 +1031,62 @@ export const SchoolProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   };
 
   // Backup & Import/Export
-  const createEncryptedBackup = () => {
+  const createEncryptedBackup = (customProvider?: SystemBackup['cloudProvider']) => {
+    const provider = customProvider || "Microsoft Azure Cloud (Blob Storage)";
+    const snapshotJson = exportDatabaseJson();
     const newBackup: SystemBackup = {
       id: `bk-${Date.now()}`,
-      filename: `Azure_School_Encrypted_Backup_${new Date().toISOString().split("T")[0]}_${Math.floor(1000 + Math.random() * 9000)}.aes256`,
+      filename: `School_Backup_${new Date().toISOString().split("T")[0]}_${Math.floor(1000 + Math.random() * 9000)}.aes256`,
       timestamp: new Date().toISOString().replace("T", " ").substring(0, 19),
       size: `${(45 + Math.random() * 5).toFixed(1)} MB`,
       recordsCount: students.length + staff.length + gradeRecords.length + payments.length,
       encrypted: true,
-      cloudProvider: "Microsoft Azure Cloud (Blob Storage)",
+      cloudProvider: provider,
       checksum: `sha256-${Math.random().toString(36).substring(2, 15)}${Math.random().toString(36).substring(2, 15)}`,
       status: "synced",
+      dataPayload: snapshotJson,
     };
     setBackups((prev) => [newBackup, ...prev]);
-    addAuditLog("إنشاء نسخة احتياطية سحابية مشفرة", "الأمان والسحابة", `تم تصدير نسخة مشفرة AES-256 إلى Microsoft Azure Blob Storage`);
+    addAuditLog("إنشاء نسخة احتياطية مشفرة", "الأمان والسحابة", `تم تصدير نسخة مشفرة AES-256 إلى ${provider}`);
+    
+    // Play sound and send push notification
+    if (notificationSettings.soundEnabled) {
+      playNotificationSound("success");
+    }
+    triggerPushNotification({
+      title: "تم إنشاء نسخة احتياطية مشفرة بنجاح",
+      body: `تم حفظ ${newBackup.filename} بحجم ${newBackup.size} في ${provider}.`,
+      type: "system",
+      priority: "normal",
+      actionModule: "settings",
+    });
+  };
+
+  const restoreFromBackup = (backupId: string): boolean => {
+    const backupItem = backups.find((b) => b.id === backupId);
+    if (!backupItem) return false;
+
+    if (backupItem.dataPayload) {
+      const success = importDatabaseJson(backupItem.dataPayload);
+      if (success) {
+        addAuditLog("استعادة لقطة احتياطية", "إدارة النظام", `تمت استعادة نقطة النسخ ${backupItem.filename} بنجاح`);
+        triggerPushNotification({
+          title: "تمت استعادة البيانات بنجاح",
+          body: `تمت استعادة كافة السجلات من النسخة الاحتياطية (${backupItem.filename}).`,
+          type: "system",
+          priority: "important",
+          actionModule: "settings",
+        });
+        if (notificationSettings.soundEnabled) playNotificationSound("success");
+        return true;
+      }
+    }
+    return false;
+  };
+
+  const deleteBackup = (backupId: string) => {
+    setBackups((prev) => prev.filter((b) => b.id !== backupId));
+    addAuditLog("حذف نسخة احتياطية", "إدارة النظام", `تم حذف نقطة النسخ الاحتياطي رقم ${backupId}`);
   };
 
   const exportDatabaseJson = () => {
@@ -822,6 +1094,7 @@ export const SchoolProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       exportDate: new Date().toISOString(),
       system: "Private School Management System - نظام إدارة المدرسة الخاصة",
       version: "2.5.0-Enterprise",
+      schoolName: schoolInfo.schoolName,
       cloudProvider: "Microsoft Azure GCC North",
       data: {
         academicYears,
@@ -841,6 +1114,7 @@ export const SchoolProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         timetableSlots,
         payments,
         auditLogs,
+        schoolInfo,
       },
     };
     return JSON.stringify(fullDb, null, 2);
@@ -865,7 +1139,17 @@ export const SchoolProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       if (data.directMessages) setDirectMessages(data.directMessages);
       if (data.timetableSlots) setTimetableSlots(data.timetableSlots);
       if (data.payments) setPayments(data.payments);
+      if (data.schoolInfo) setSchoolInfo(data.schoolInfo);
+      
       addAuditLog("استيراد قاعدة بيانات", "إدارة النظام", "تم استيراد واستعادة قاعدة البيانات بنجاح");
+      triggerPushNotification({
+        title: "تم استيراد البيانات بنجاح",
+        body: `تم تحديث واستيراد بيانات الطلاب والكادر والدرجات من الملف المستورد.`,
+        type: "system",
+        priority: "important",
+        actionModule: "settings",
+      });
+      if (notificationSettings.soundEnabled) playNotificationSound("success");
       return true;
     } catch (e) {
       console.error("Failed to import JSON:", e);
@@ -924,6 +1208,8 @@ export const SchoolProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         payments,
         auditLogs,
         backups,
+        schoolInfo,
+        updateSchoolInfo,
         selectedYear,
         setSelectedYear,
         selectedGradeId,
@@ -979,7 +1265,19 @@ export const SchoolProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         createEncryptedBackup,
         exportDatabaseJson,
         importDatabaseJson,
+        restoreFromBackup,
+        deleteBackup,
         resetToDefaultData,
+        pushNotifications,
+        unreadPushCount,
+        notificationSettings,
+        updateNotificationSettings,
+        requestPushPermission,
+        triggerPushNotification,
+        markPushAsRead,
+        markAllPushAsRead,
+        clearPushNotification,
+        clearAllPushNotifications,
       }}
     >
       {children}

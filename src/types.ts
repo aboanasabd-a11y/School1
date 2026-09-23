@@ -416,6 +416,30 @@ export interface AuditLog {
   severity: 'info' | 'warning' | 'critical';
 }
 
+export interface SchoolInfo {
+  schoolName: string;
+  directorate: string; // e.g. "المديرية العامة لتربية بغداد"
+  ministry: string; // e.g. "جمهورية العراق - وزارة التربية"
+  country: string; // e.g. "جمهورية العراق"
+  location: string; // e.g. "وزارة التربية - بغداد"
+  logoUrl: string; // custom logo url or svg icon
+  principalName: string;
+  phone: string;
+  email: string;
+  address: string;
+  motto: string; // e.g. "بالعلم نبني المستقبل"
+  developerName: string; // e.g. "Ahmedpc"
+  developerUrl?: string;
+  developerSocials?: {
+    youtube?: string;
+    facebook?: string;
+    telegram?: string;
+    tiktok?: string;
+    instagram?: string;
+    whatsapp?: string;
+  };
+}
+
 export interface SystemBackup {
   id: string;
   filename: string;
@@ -423,7 +447,40 @@ export interface SystemBackup {
   size: string;
   recordsCount: number;
   encrypted: boolean;
-  cloudProvider: 'Microsoft Azure Cloud (Blob Storage)' | 'Local Secure Snapshot';
+  cloudProvider: 'Microsoft Azure Cloud (Blob Storage)' | 'Local Secure Snapshot' | 'Google Cloud Storage' | 'Offline Local Archive';
   checksum: string;
   status: 'synced' | 'pending' | 'verifying';
+  dataPayload?: string; // serialized snapshot for instant restore
+}
+
+export type PushNotificationType = 
+  | 'message'         // رسالة جديدة في بوابة التواصل
+  | 'attendance'      // تحديث مهم في الحضور والغياب (غياب، تأخر، استئذان)
+  | 'announcement'    // إعلان أو تعميم وزاري جديد
+  | 'bus'             // إشعار حافلة ومسار
+  | 'grade'           // رصد علامة جديدة
+  | 'system';         // نسخ احتياطي، استيراد وتصدير
+
+export interface PushNotificationItem {
+  id: string;
+  title: string;
+  body: string;
+  timestamp: string;
+  type: PushNotificationType;
+  priority: 'normal' | 'important' | 'urgent';
+  isRead: boolean;
+  senderName?: string;
+  targetUserId?: string; // specific user or 'all'
+  actionModule?: ActiveModule;
+  metadata?: Record<string, any>;
+}
+
+export interface NotificationSettings {
+  pushEnabled: boolean;
+  soundEnabled: boolean;
+  notifyOnMessages: boolean;
+  notifyOnAttendanceAlerts: boolean; // غياب وتأخر
+  notifyOnAnnouncements: boolean;
+  notifyOnBusArrivals: boolean;
+  browserPermission: NotificationPermission | 'unsupported';
 }

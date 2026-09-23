@@ -15,6 +15,7 @@ import {
   Filter,
   FileText,
   X,
+  Bell,
 } from "lucide-react";
 
 export const CommunicationView: React.FC = () => {
@@ -281,10 +282,18 @@ export const CommunicationView: React.FC = () => {
           {/* Conversation List (1 Col) */}
           <div className="border-l border-slate-200 p-4 space-y-3 bg-slate-50/50">
             <div className="flex items-center justify-between">
-              <h3 className="text-sm font-bold text-slate-900">المحادثات المباشرة</h3>
+              <div>
+                <h3 className="text-sm font-bold text-slate-900 flex items-center gap-1.5">
+                  <span>المحادثات المباشرة</span>
+                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-sky-100 text-sky-800 font-bold border border-sky-200 flex items-center gap-1">
+                    <Bell className="w-2.5 h-2.5" />
+                    <span>تنبيه دفع فوري</span>
+                  </span>
+                </h3>
+              </div>
               <button
                 onClick={() => setShowNewMsgModal(true)}
-                className="p-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-colors"
+                className="p-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-colors cursor-pointer"
                 title="محادثة جديدة"
               >
                 <Plus className="w-4 h-4" />
