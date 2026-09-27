@@ -24,6 +24,7 @@ import {
   SchoolInfo,
   PushNotificationItem,
   NotificationSettings,
+  EvaluationRecord,
 } from "../types";
 import { playNotificationSound } from "../utils/sound";
 import {
@@ -38,6 +39,7 @@ import {
   initialAssignments,
   initialAttendanceRecords,
   initialBehaviorRecords,
+  initialEvaluations,
   initialBusRoutes,
   initialAnnouncements,
   initialDirectMessages,
@@ -72,6 +74,7 @@ interface SchoolContextType {
   assignments: Assignment[];
   attendanceRecords: AttendanceRecord[];
   behaviorRecords: BehaviorRecord[];
+  evaluations: EvaluationRecord[];
   busRoutes: BusRoute[];
   announcements: Announcement[];
   directMessages: DirectMessage[];
@@ -107,6 +110,11 @@ interface SchoolContextType {
   generateParentDirectLink: (studentNumber: string) => string;
   generateTeacherDirectLink: (teacherId: string) => string;
   applyDirectLinkAccess: (type: "parent" | "teacher", identifier: string) => boolean;
+  loginTeacherWithCredentials: (name: string, phoneOrNumber: string) => { success: boolean; message: string; teacher?: StaffMember };
+  loginParentWithStudentNumber: (studentNumberOrId: string) => { success: boolean; message: string; student?: Student };
+  logoutDirectTeacher: () => void;
+  logoutDirectParent: () => void;
+  addEvaluation: (evalData: Omit<EvaluationRecord, "id">) => void;
 
   // Actions
   // Students
@@ -211,6 +219,7 @@ export const SchoolProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const [assignments, setAssignments] = useState<Assignment[]>(initialAssignments);
   const [attendanceRecords, setAttendanceRecords] = useState<AttendanceRecord[]>(initialAttendanceRecords);
   const [behaviorRecords, setBehaviorRecords] = useState<BehaviorRecord[]>(initialBehaviorRecords);
+  const [evaluations, setEvaluations] = useState<EvaluationRecord[]>(initialEvaluations);
   const [busRoutes, setBusRoutes] = useState<BusRoute[]>(initialBusRoutes);
   const [announcements, setAnnouncements] = useState<Announcement[]>(initialAnnouncements);
   const [directMessages, setDirectMessages] = useState<DirectMessage[]>(initialDirectMessages);
@@ -504,6 +513,98 @@ export const SchoolProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     return false;
   };
 
+  const loginTeacherWithCredentials = (
+    name: string,
+    phoneOrNumber: string
+  ): { success: boolean; message: string; teacher?: StaffMember } => {
+    const cleanName = name.trim().toLowerCase();
+    const cleanNumber = phoneOrNumber.trim().toLowerCase();
+    const cleanDigits = phoneOrNumber.replace(/[^0-9]/g, "");
+
+    const found = staff.find((member) => {
+      const matchName =
+        !cleanName ||
+        member.fullName.toLowerCase().includes(cleanName) ||
+        cleanName.includes(member.fullName.toLowerCase());
+
+      const memberDigits = (member.phone || "").replace(/[^0-9]/g, "");
+      const matchNumber =
+        (member.employeeNumber && member.employeeNumber.toLowerCase() === cleanNumber) ||
+        (member.nationalId && member.nationalId === cleanNumber) ||
+        (member.id && member.id.toLowerCase() === cleanNumber) ||
+        (cleanDigits.length >= 4 && memberDigits.includes(cleanDigits)) ||
+        (member.phone && member.phone.includes(phoneOrNumber.trim()));
+
+      return matchName && matchNumber;
+    });
+
+    if (found) {
+      applyDirectLinkAccess("teacher", found.id);
+      return { success: true, message: `مرحباً بك أستاذ: ${found.fullName}`, teacher: found };
+    }
+
+    return {
+      success: false,
+      message: "لم يتم العثور على معلم يطابق الاسم والرقم المدخل. يرجى التحقق من الاسم والرقم الوظيفي أو رقم الجوال.",
+    };
+  };
+
+  const loginParentWithStudentNumber = (
+    studentNumberOrId: string
+  ): { success: boolean; message: string; student?: Student } => {
+    const query = studentNumberOrId.trim().toLowerCase();
+    if (!query) {
+      return { success: false, message: "يرجى إدخال رقم الطالب الأكاديمي أو رقم الهوية" };
+    }
+
+    const found = students.find(
+      (s) =>
+        (s.studentNumber && s.studentNumber.toLowerCase() === query) ||
+        (s.id && s.id.toLowerCase() === query) ||
+        (s.nationalId && s.nationalId === query) ||
+        (s.fullName && s.fullName.toLowerCase().includes(query))
+    );
+
+    if (found) {
+      applyDirectLinkAccess("parent", found.studentNumber || found.id);
+      return { success: true, message: `تم استرجاع بيانات الطالب: ${found.fullName}`, student: found };
+    }
+
+    return {
+      success: false,
+      message: "لم يتم العثور على طالب يطابق رقم القيد أو الهوية المدخلة. يرجى التحقق من الرقم.",
+    };
+  };
+
+  const logoutDirectTeacher = () => {
+    setActiveDirectTeacherId(null);
+    try {
+      const url = new URL(window.location.href);
+      url.searchParams.delete("teacherId");
+      url.searchParams.delete("staffId");
+      window.history.pushState({}, "", url.pathname + (url.search ? url.search : ""));
+    } catch (_) {}
+  };
+
+  const logoutDirectParent = () => {
+    setActiveDirectStudentId(null);
+    try {
+      const url = new URL(window.location.href);
+      url.searchParams.delete("studentNumber");
+      url.searchParams.delete("student");
+      url.searchParams.delete("studentId");
+      window.history.pushState({}, "", url.pathname + (url.search ? url.search : ""));
+    } catch (_) {}
+  };
+
+  const addEvaluation = (evalData: Omit<EvaluationRecord, "id">) => {
+    const newEval: EvaluationRecord = {
+      ...evalData,
+      id: `eval-${Date.now()}`,
+    };
+    setEvaluations((prev) => [newEval, ...prev]);
+  };
+
   // Check URL parameters on initial load
   useEffect(() => {
     try {
@@ -519,9 +620,9 @@ export const SchoolProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       } else if (teacherParam) {
         applyDirectLinkAccess("teacher", teacherParam);
       } else if (portalParam === "parent") {
-        applyDirectLinkAccess("parent", "STD-2026-001");
+        setActiveModule("portal_parent");
       } else if (portalParam === "teacher") {
-        applyDirectLinkAccess("teacher", "staff-2");
+        setActiveModule("portal_teacher");
       }
     } catch (e) {
       console.error("Error inspecting initial URL parameters:", e);
@@ -544,6 +645,7 @@ export const SchoolProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         if (parsed.assignments) setAssignments(parsed.assignments);
         if (parsed.attendanceRecords) setAttendanceRecords(parsed.attendanceRecords);
         if (parsed.behaviorRecords) setBehaviorRecords(parsed.behaviorRecords);
+        if (parsed.evaluations) setEvaluations(parsed.evaluations);
         if (parsed.busRoutes) setBusRoutes(parsed.busRoutes);
         if (parsed.announcements) setAnnouncements(parsed.announcements);
         if (parsed.directMessages) setDirectMessages(parsed.directMessages);
@@ -551,7 +653,20 @@ export const SchoolProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         if (parsed.payments) setPayments(parsed.payments);
         if (parsed.auditLogs) setAuditLogs(parsed.auditLogs);
         if (parsed.backups) setBackups(parsed.backups);
-        if (parsed.schoolInfo) setSchoolInfo(parsed.schoolInfo);
+        if (parsed.schoolInfo) {
+          const loaded = { ...parsed.schoolInfo };
+          if (loaded.country === "جمهورية العراق") loaded.country = "";
+          if (loaded.ministry?.includes("جمهورية العراق - ")) {
+            loaded.ministry = loaded.ministry.replace("جمهورية العراق - ", "");
+          }
+          if (loaded.directorate === "المديرية العامة لتربية بغداد") {
+            loaded.directorate = "إدارة التعليم الأهلي والخاص";
+          }
+          if (loaded.schoolName === "متوسطة الرافدين للبنين") {
+            loaded.schoolName = "المدرسة النموذجية الأهلية";
+          }
+          setSchoolInfo(loaded);
+        }
       }
     } catch (e) {
       console.error("Failed loading stored data:", e);
@@ -572,6 +687,7 @@ export const SchoolProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         assignments,
         attendanceRecords,
         behaviorRecords,
+        evaluations,
         busRoutes,
         announcements,
         directMessages,
@@ -600,6 +716,7 @@ export const SchoolProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     assignments,
     attendanceRecords,
     behaviorRecords,
+    evaluations,
     busRoutes,
     announcements,
     directMessages,
@@ -710,7 +827,7 @@ export const SchoolProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     };
     setStudents((prev) =>
       prev.map((s) =>
-        s.id === studentId ? { ...s, documents: [...s.documents, newDoc] } : s
+        s.id === studentId ? { ...s, documents: [...(s.documents || []), newDoc] } : s
       )
     );
     addAuditLog("رفع وثيقة طالب", "إدارة الوثائق", `تمت إضافة وثيقة: ${doc.title}`);
@@ -788,24 +905,48 @@ export const SchoolProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
   // Exams & Grading
   const addExam = (examData: Omit<Exam, "id">) => {
-    const newExam: Exam = { ...examData, id: `exam-${Date.now()}` };
+    const maxMarks = examData.maxMarks || examData.maxScore || 100;
+    const passMarks = examData.passMarks || examData.passingScore || Math.round(maxMarks * 0.5);
+    const category = examData.category || (examData.type === "monthly" ? "monthly" : examData.type === "quiz" ? "quiz" : "exam");
+    const assessmentCategoryName =
+      examData.assessmentCategoryName ||
+      (category === "monthly" ? "تقييم شهري" : category === "quiz" ? "مذاكرة" : "امتحان");
+
+    const newExam: Exam = {
+      ...examData,
+      id: `exam-${Date.now()}`,
+      maxMarks,
+      maxScore: maxMarks,
+      passMarks,
+      passingScore: passMarks,
+      category,
+      assessmentCategoryName,
+    };
     setExams((prev) => [newExam, ...prev]);
-    addAuditLog("جدولة امتحان جديد", "الامتحانات والتقييم", `تمت جدولة: ${newExam.title}`);
+    addAuditLog("جدولة اختبار جديد", "الامتحانات والتقييم", `تمت جدولة: ${newExam.title} (${assessmentCategoryName})`);
   };
 
   const recordGrade = (recordData: Omit<GradeRecord, "id">) => {
+    const matchingExam = exams.find((e) => e.id === recordData.examId);
+    const category = recordData.category || matchingExam?.category || (recordData.examType?.includes("شهري") ? "monthly" : recordData.examType?.includes("مذاكرة") ? "quiz" : "exam");
+
+    const fullRecord = {
+      ...recordData,
+      category,
+    };
+
     const existingIndex = gradeRecords.findIndex(
       (r) => r.studentId === recordData.studentId && r.examId === recordData.examId
     );
     if (existingIndex >= 0) {
       setGradeRecords((prev) =>
-        prev.map((r, i) => (i === existingIndex ? { ...r, ...recordData } : r))
+        prev.map((r, i) => (i === existingIndex ? { ...r, ...fullRecord } : r))
       );
     } else {
-      const newRec: GradeRecord = { ...recordData, id: `gr-${Date.now()}` };
+      const newRec: GradeRecord = { ...fullRecord, id: `gr-${Date.now()}` };
       setGradeRecords((prev) => [newRec, ...prev]);
     }
-    addAuditLog("رصد درجة امتحان", "الامتحانات والتقييم", `رصد علامة الطالب ${recordData.studentName} في ${recordData.subjectName}`);
+    addAuditLog("رصد درجة تقييم", "الامتحانات والتقييم", `رصد علامة الطالب ${recordData.studentName} في ${recordData.subjectName}`);
   };
 
   const addAssignment = (asgData: Omit<Assignment, "id" | "assignedDate">) => {
@@ -1032,15 +1173,25 @@ export const SchoolProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     setStudents((prev) =>
       prev.map((std) => {
         if (std.id === paymentData.studentId) {
-          const newPaid = std.finance.paidAmount + paymentData.amount;
-          const newBalance = Math.max(0, std.finance.netAmount - newPaid);
+          const currentNet = std.finance?.netAmount ?? (std.totalPayments || 18000);
+          const currentPaid = std.finance?.paidAmount ?? ((std.firstPayment || 0) + (std.secondPayment || 0));
+          const newPaid = currentPaid + paymentData.amount;
+          const newBalance = Math.max(0, currentNet - newPaid);
           const newStatus = newBalance === 0 ? "paid" : "partial";
           return {
             ...std,
+            firstPayment: std.firstPayment !== undefined ? std.firstPayment : newPaid,
+            remainingBalance: newBalance,
             finance: {
-              ...std.finance,
+              totalTuition: std.finance?.totalTuition ?? currentNet,
+              busFee: std.finance?.busFee ?? (std.transportationFee || 0),
+              booksFee: std.finance?.booksFee ?? (std.booksFeeVal || 0),
+              discountType: std.finance?.discountType ?? "لا يوجد",
+              discountAmount: std.finance?.discountAmount ?? 0,
+              netAmount: currentNet,
               paidAmount: newPaid,
               balance: newBalance,
+              paymentPlan: std.finance?.paymentPlan ?? "two_installments",
               status: newStatus,
             },
           };
@@ -1223,6 +1374,7 @@ export const SchoolProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         assignments,
         attendanceRecords,
         behaviorRecords,
+        evaluations,
         busRoutes,
         announcements,
         directMessages,
@@ -1252,6 +1404,11 @@ export const SchoolProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         generateParentDirectLink,
         generateTeacherDirectLink,
         applyDirectLinkAccess,
+        loginTeacherWithCredentials,
+        loginParentWithStudentNumber,
+        logoutDirectTeacher,
+        logoutDirectParent,
+        addEvaluation,
         addStudent,
         updateStudent,
         deleteStudent,

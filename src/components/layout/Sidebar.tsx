@@ -30,7 +30,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   isOpen,
   onClose,
 }) => {
-  const { activeModule, setActiveModule } = useSchool();
+  const { activeModule, setActiveModule, schoolInfo } = useSchool();
 
   const currentActive = propActiveTab || activeModule || "dashboard";
 
@@ -125,10 +125,33 @@ export const Sidebar: React.FC<SidebarProps> = ({
           <span className="text-xs font-bold text-sky-200">القائمة الرئيسية</span>
           <button
             onClick={onClose}
-            className="p-1 rounded text-white/70 hover:text-white hover:bg-white/10"
+            className="p-1 rounded text-white/70 hover:text-white hover:bg-white/10 cursor-pointer"
           >
             <X className="w-4 h-4" />
           </button>
+        </div>
+
+        {/* School Logo & Identity Card */}
+        <div className="p-3 border-b border-white/10 flex items-center gap-2.5 bg-black/15">
+          <div className="w-9 h-9 rounded-lg bg-white/10 border border-white/20 p-1 flex items-center justify-center shrink-0 shadow-xs">
+            {schoolInfo.logoUrl ? (
+              <img
+                src={schoolInfo.logoUrl}
+                alt={schoolInfo.schoolName || "لوغو المدرسة"}
+                className="w-full h-full object-contain rounded-xs"
+              />
+            ) : (
+              <GraduationCap className="w-5 h-5 text-sky-200" />
+            )}
+          </div>
+          <div className="min-w-0 flex-1">
+            <div className="text-xs font-bold text-white truncate">
+              {schoolInfo.schoolName || "المدرسة النموذجية"}
+            </div>
+            <div className="text-[10px] text-sky-300/80 truncate">
+              {schoolInfo.motto || "بالعلم نبني المستقبل"}
+            </div>
+          </div>
         </div>
 
         {/* Menu Items List */}

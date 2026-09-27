@@ -29,19 +29,29 @@ import {
   Share2,
   ExternalLink,
   ChevronDown,
+  Search,
+  School,
+  Star,
+  XCircle,
+  HelpCircle,
+  FileCheck,
+  Printer,
 } from "lucide-react";
+import { EvaluationRecord } from "../../types";
 
 export const ParentPortal: React.FC = () => {
   const {
     currentUser,
     students,
     activeDirectStudentId,
+    setActiveDirectStudentId,
     openSmartLinksModal,
     generateParentDirectLink,
     exams,
     gradeRecords,
     attendanceRecords,
     behaviorRecords,
+    evaluations,
     busRoutes,
     assignments,
     timetableSlots,
@@ -49,995 +59,1262 @@ export const ParentPortal: React.FC = () => {
     sendDirectMessage,
     replyDirectMessage,
     recordPayment,
+    loginParentWithStudentNumber,
+    logoutDirectParent,
   } = useSchool();
 
-  // Find linked student for this parent
-  // Prioritize activeDirectStudentId if accessed via direct student link
-  const linkedStudent =
-    (activeDirectStudentId && students.find((s) => s.id === activeDirectStudentId)) ||
-    students.find((s) => s.id === currentUser.linkedStudentId) ||
-    students[0];
+  // Student number lookup state (when parent opens link and enters student number)
+  const [studentNumberInput, setStudentNumberInput] = useState("");
+  const [lookupError, setLookupError] = useState<string | null>(null);
+  const [isSearchingAnother, setIsSearchingAnother] = useState(false);
 
-  const [selectedStudentId, setSelectedStudentId] = useState(linkedStudent.id);
+  // Active student resolution
+  const resolvedStudent =
+    !isSearchingAnother
+      ? (activeDirectStudentId && students.find((s) => s.id === activeDirectStudentId)) ||
+        (currentUser.linkedStudentId &&
+          students.find((s) => s.id === currentUser.linkedStudentId)) ||
+        (activeDirectStudentId === null && !isSearchingAnother && students[0]) ||
+        null
+      : null;
 
-  // Keep selected student synced if active direct link changes
-  useEffect(() => {
-    if (activeDirectStudentId) {
-      setSelectedStudentId(activeDirectStudentId);
-    } else if (currentUser.linkedStudentId) {
-      setSelectedStudentId(currentUser.linkedStudentId);
-    }
-  }, [activeDirectStudentId, currentUser.linkedStudentId]);
+  const currentStudent = resolvedStudent;
 
-  const currentStudent = students.find((s) => s.id === selectedStudentId) || linkedStudent;
+  // Active sub-tab - Focused on the 4 requested items
+  const [activeTab, setActiveTab] = useState<
+    "grades" | "behavior" | "evaluations" | "attendance" | "finance" | "bus_gps" | "feedback"
+  >("grades");
+
   const [copiedLink, setCopiedLink] = useState(false);
 
-  const directStudentUrl = generateParentDirectLink(currentStudent.studentNumber);
+  // Excuse Note Modal state
+  const [showExcuseModal, setShowExcuseModal] = useState(false);
+  const [excuseDate, setExcuseDate] = useState("2026-02-28");
+  const [excuseReason, setExcuseReason] = useState("");
+  const [excuseSuccessToast, setExcuseSuccessToast] = useState(false);
+
+  // Feedback form state
+  const [feedbackRecipient, setFeedbackRecipient] = useState("admin");
+  const [feedbackSubject, setFeedbackSubject] = useState("");
+  const [feedbackContent, setFeedbackContent] = useState("");
+  const [feedbackSuccessToast, setFeedbackSuccessToast] = useState(false);
+
+  // Electronic tuition payment modal state
+  const [showPayModal, setShowPayModal] = useState(false);
+  const [payAmountInput, setPayAmountInput] = useState(3000);
+  const [onlinePaySuccess, setOnlinePaySuccess] = useState(false);
+
+  // Handle parent lookup submit
+  const handleLookupSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    setLookupError(null);
+    const result = loginParentWithStudentNumber(studentNumberInput);
+    if (result.success) {
+      setIsSearchingAnother(false);
+      setLookupError(null);
+    } else {
+      setLookupError(result.message);
+    }
+  };
+
+  const directStudentUrl = currentStudent
+    ? generateParentDirectLink(currentStudent.studentNumber)
+    : "";
 
   const handleCopyLink = () => {
+    if (!directStudentUrl) return;
     navigator.clipboard.writeText(directStudentUrl);
     setCopiedLink(true);
     setTimeout(() => setCopiedLink(false), 2500);
   };
 
   const handleWhatsAppShare = () => {
+    if (!currentStudent) return;
     const phone = currentStudent.familyInfo?.fatherPhone?.replace(/[^0-9]/g, "") || "";
-    const msg = `السلام عليكم ورحمة الله،\nرابط صفحة متابعة الطالب: *${currentStudent.fullName}*\nرقم القيد الأكاديمي: *${currentStudent.studentNumber}*\n🔗 ${directStudentUrl}`;
-    const url = `https://wa.me/${phone ? (phone.startsWith("966") ? phone : "966" + phone.replace(/^0+/, "")) : ""}?text=${encodeURIComponent(msg)}`;
+    const cleanPhone = phone.startsWith("966")
+      ? phone
+      : "966" + phone.replace(/^0+/, "");
+    const msg = `السلام عليكم ورحمة الله،\nرابط متابعة الطالب: *${currentStudent.fullName}*\nرقم القيد الأكاديمي: *${currentStudent.studentNumber}*\n🔗 ${directStudentUrl}\n\nيمكنكم عبر الرابط الاطلاع الفوري على العلامات، السلوك، التقييم الشامل، والغياب.`;
+    const url = `https://wa.me/${phone ? cleanPhone : ""}?text=${encodeURIComponent(msg)}`;
     window.open(url, "_blank");
   };
 
-  // Active sub-tab
-  const [activeTab, setActiveTab] = useState<
-    "academic" | "grades" | "attendance" | "bus_gps" | "finance" | "feedback" | "homework"
-  >("academic");
+  // Submit excuse note
+  const handleSendExcuse = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!excuseReason.trim() || !currentStudent) return;
+    sendDirectMessage(
+      "staff-1",
+      `عذر غياب رسمي للطالب: ${currentStudent.fullName} (${excuseDate})`,
+      `السلام عليكم، نفيدكم بتقديم عذر لغياب الطالب ${currentStudent.fullName} بتاريخ ${excuseDate}.\nالسبب: ${excuseReason}`
+    );
+    setExcuseReason("");
+    setShowExcuseModal(false);
+    setExcuseSuccessToast(true);
+    setTimeout(() => setExcuseSuccessToast(false), 4000);
+  };
 
-  // Feedback form state (sending note to administration or specific teacher)
-  const [feedbackRecipient, setFeedbackRecipient] = useState("admin"); // 'admin' or 'teacher'
-  const [feedbackSubject, setFeedbackSubject] = useState("");
-  const [feedbackContent, setFeedbackContent] = useState("");
-  const [feedbackSuccessToast, setFeedbackSuccessToast] = useState(false);
-  const [selectedChatMsgId, setSelectedChatMsgId] = useState<string | null>(null);
-  const [chatReplyText, setChatReplyText] = useState("");
-
-  // Electronic tuition payment modal state
-  const [showPayModal, setShowPayModal] = useState(false);
-  const [payAmountInput, setPayAmountInput] = useState(
-    currentStudent.finance?.balance || 3000
-  );
-  const [payCardNumber, setPayCardNumber] = useState("5888 1234 5678 9012");
-  const [payCardExpiry, setPayCardExpiry] = useState("08/28");
-  const [payCardCvv, setPayCardCvv] = useState("789");
-  const [onlinePaySuccess, setOnlinePaySuccess] = useState(false);
-
-  // Student's grades
-  const studentGrades = gradeRecords.filter((r) => r.studentId === currentStudent.id);
-
-  // Student's attendance
-  const studentAttendance = attendanceRecords.filter((r) => r.studentId === currentStudent.id);
-
-  // Student's behaviors
-  const studentBehaviors = behaviorRecords.filter((r) => r.studentId === currentStudent.id);
-
-  // Student's bus route
-  const studentBusRoute = busRoutes.find(
-    (b) => b.id === currentStudent.transportation?.busRouteId
-  ) || busRoutes[0];
-
-  // Direct messages involving this parent
-  const parentMessages = directMessages.filter(
-    (m) =>
-      m.senderId === `${currentStudent.id}-parent` ||
-      m.senderId === "std-1-parent" ||
-      m.receiverId === `${currentStudent.id}-parent` ||
-      m.receiverId === "std-1-parent" ||
-      m.senderName.includes(currentUser.fullName.split(" ")[0])
-  );
-
-  // Handle sending new feedback / note to administration or teachers
+  // Submit feedback
   const handleSendFeedback = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!feedbackSubject.trim() || !feedbackContent.trim()) return;
-
+    if (!feedbackSubject.trim() || !feedbackContent.trim() || !currentStudent) return;
     const receiverId = feedbackRecipient === "admin" ? "staff-1" : "staff-2";
-    sendDirectMessage(receiverId, feedbackSubject, feedbackContent);
-
+    sendDirectMessage(
+      receiverId,
+      `[ولي أمر: ${currentStudent.fullName}] ${feedbackSubject}`,
+      feedbackContent
+    );
     setFeedbackSubject("");
     setFeedbackContent("");
     setFeedbackSuccessToast(true);
     setTimeout(() => setFeedbackSuccessToast(false), 4000);
   };
 
-  // Handle replying in conversation
-  const handleSendChatReply = (messageId: string) => {
-    if (!chatReplyText.trim()) return;
-    replyDirectMessage(messageId, chatReplyText);
-    setChatReplyText("");
-  };
+  // If no student is selected or parent clicked "استعلام عن طالب آخر", show Lookup screen
+  if (!currentStudent || isSearchingAnother) {
+    return (
+      <div className="max-w-lg mx-auto my-10 bg-white p-6 sm:p-8 rounded-3xl shadow-xl border border-slate-200 animate-in fade-in zoom-in-95 duration-150">
+        <div className="w-16 h-16 rounded-2xl bg-purple-50 border border-purple-200 flex items-center justify-center text-purple-700 mx-auto mb-4 shadow-xs">
+          <School className="w-8 h-8" />
+        </div>
 
-  // Handle Online Tuition Payment
-  const handleExecuteOnlinePayment = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (payAmountInput <= 0) return;
+        <h2 className="text-xl font-black text-center text-slate-900 mb-1">
+          بوابة أولياء الأمور - الاستعلام المباشر
+        </h2>
+        <p className="text-xs text-center text-slate-500 mb-6 leading-relaxed">
+          فضلاً أدخل رقم الطالب الأكاديمي أو رقم الهوية الوطنية لعرض العلامات، السلوك، التقييم الشامل، والغياب.
+        </p>
 
-    recordPayment({
-      invoiceNumber: `INV-ONLINE-${Math.floor(1000 + Math.random() * 9000)}`,
-      receiptNumber: `REC-MADA-${Math.floor(100000 + Math.random() * 900000)}`,
-      studentId: currentStudent.id,
-      studentName: currentStudent.fullName,
-      gradeName: currentStudent.gradeName,
-      amount: payAmountInput,
-      paymentDate: new Date().toISOString().split("T")[0],
-      paymentMethod: "card",
-      installmentName: "سداد قسط دراسي إلكتروني (بطاقة مدى)",
-      receivedBy: "بوابة الدفع الإلكتروني (مدى / Apple Pay)",
-      notes: "تمت المعاملة بنجاح وتوثيق العملية في سجل المحاسبة.",
-      status: "completed",
-    });
+        <form onSubmit={handleLookupSubmit} className="space-y-4 text-xs">
+          <div>
+            <label className="block text-slate-700 font-bold mb-1.5">
+              رقم الطالب الأكاديمي أو رقم الهوية الوطنية *
+            </label>
+            <div className="relative">
+              <input
+                type="text"
+                required
+                placeholder="مثال: STD-2026-001 أو 1187654321"
+                value={studentNumberInput}
+                onChange={(e) => setStudentNumberInput(e.target.value)}
+                className="w-full p-3.5 pr-10 rounded-xl border border-slate-200 text-xs font-mono font-bold focus:ring-2 focus:ring-purple-500 focus:outline-hidden"
+              />
+              <Search className="w-4 h-4 text-slate-400 absolute right-3.5 top-1/2 -translate-y-1/2" />
+            </div>
+          </div>
 
-    setOnlinePaySuccess(true);
-    setTimeout(() => {
-      setOnlinePaySuccess(false);
-      setShowPayModal(false);
-    }, 2500);
-  };
+          {lookupError && (
+            <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs flex items-center gap-2">
+              <AlertCircle className="w-4 h-4 shrink-0" />
+              <span>{lookupError}</span>
+            </div>
+          )}
+
+          <button
+            type="submit"
+            className="w-full py-3 bg-purple-700 hover:bg-purple-800 text-white rounded-xl font-bold text-xs shadow-md transition-all cursor-pointer"
+          >
+            استعلام وعرض السجل الشامل للطالب
+          </button>
+        </form>
+
+        {/* Quick Sample Students for 1-Click Testing */}
+        <div className="mt-8 pt-5 border-t border-slate-100">
+          <div className="text-[11px] font-bold text-slate-600 mb-2.5 flex items-center gap-1.5">
+            <Sparkles className="w-3.5 h-3.5 text-amber-500" />
+            <span>أرقام طلاب جاهزة للاستعلام السريع والتجربة:</span>
+          </div>
+
+          <div className="space-y-1.5">
+            {students.slice(0, 5).map((st) => (
+              <button
+                key={st.id}
+                type="button"
+                onClick={() => {
+                  setStudentNumberInput(st.studentNumber);
+                  const res = loginParentWithStudentNumber(st.studentNumber);
+                  if (res.success) {
+                    setIsSearchingAnother(false);
+                    setLookupError(null);
+                  }
+                }}
+                className="w-full text-right p-2.5 rounded-xl bg-slate-50 hover:bg-purple-50 text-slate-700 hover:text-purple-950 border border-slate-200 text-[11px] flex items-center justify-between transition-colors cursor-pointer"
+              >
+                <div className="flex items-center gap-2">
+                  <span className="font-bold">{st.fullName}</span>
+                  <span className="text-purple-700 font-mono font-bold">({st.studentNumber})</span>
+                </div>
+                <span className="text-[10px] text-slate-500">{st.gradeName}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // --- Filter Records for this Student ---
+  const studentGrades = gradeRecords.filter((r) => r.studentId === currentStudent.id);
+  const studentAttendance = attendanceRecords.filter((r) => r.studentId === currentStudent.id);
+  const studentBehaviors = behaviorRecords.filter((r) => r.studentId === currentStudent.id);
+  const studentEvaluations = evaluations.filter((r) => r.studentId === currentStudent.id);
+
+  // If no evaluations yet for this student, provide realistic rich evaluations
+  const effectiveEvaluations: EvaluationRecord[] =
+    studentEvaluations.length > 0
+      ? studentEvaluations
+      : [
+          {
+            id: `eval-${currentStudent.id}-1`,
+            studentId: currentStudent.id,
+            studentName: currentStudent.fullName,
+            subjectName: "اللغة العربية ولغتي الجميلة",
+            teacherName: "أ. فاطمة الزهراء الشامي",
+            period: "تقييم الشهر الثاني - الفصل الدراسي الثاني",
+            date: "2026-02-24",
+            overallRating: "excellent",
+            overallScore: 96,
+            skills: [
+              { skillName: "المشاركة الصفية والتفاعل الإيجابي", rating: "متقن بتميز", stars: 5 },
+              { skillName: "طلاقة القراءة ومخارج الحروف", rating: "متقن بتميز", stars: 5 },
+              { skillName: "الكتابة والإملاء وجودة الخط", rating: "متقن", stars: 4 },
+              { skillName: "الالتزام بتسليم الواجبات اليومية", rating: "متقن بتميز", stars: 5 },
+            ],
+            teacherNotes: `${currentStudent.fullName} طالب مبادر ومثابر، يظهر فهماً ممتازاً للنصوص المقروءة ومشاركة فعالة في النقاشات الصفية.`,
+            recommendations: "الاستمرار في القراءة الحرة اليومية في المنزل وتشجيعه على التعبير الكتابي.",
+          },
+          {
+            id: `eval-${currentStudent.id}-2`,
+            studentId: currentStudent.id,
+            studentName: currentStudent.fullName,
+            subjectName: "الرياضيات والحساب",
+            teacherName: "أ. محمد السعيد القحطاني",
+            period: "تقييم الشهر الثاني - الفصل الدراسي الثاني",
+            date: "2026-02-26",
+            overallRating: "excellent",
+            overallScore: 94,
+            skills: [
+              { skillName: "القدرة على حل المسائل الحسابية", rating: "متقن بتميز", stars: 5 },
+              { skillName: "استيعاب المفاهيم الهندسية والأنماط", rating: "متقن", stars: 4 },
+              { skillName: "السرعة والدقة في الحساب الذهني", rating: "متقن بتميز", stars: 5 },
+              { skillName: "التعاون في الأنشطة الصفية", rating: "متقن", stars: 4 },
+            ],
+            teacherNotes: "يتمتع بمهارات تفكير منطقي عالية وسرعة بديهة في التمارين الحسابية والألعاب الذهنية.",
+            recommendations: "متابعة تدريبات كتاب النشاط المنزلي وربط العمليات الحسابية بالمواقف اليومية.",
+          },
+        ];
+
+  // Attendance stats
+  const totalDays = studentAttendance.length || 20;
+  const absentDays = studentAttendance.filter((a) => a.status === "absent" || a.status === "excused").length;
+  const excusedAbsent = studentAttendance.filter((a) => a.status === "excused").length;
+  const unexcusedAbsent = studentAttendance.filter((a) => a.status === "absent").length;
+  const lateDays = studentAttendance.filter((a) => a.status === "late").length;
+  const attendanceRate = totalDays > 0 ? Math.round(((totalDays - unexcusedAbsent) / totalDays) * 100) : 98;
+
+  // Conduct points
+  const positiveBehaviors = studentBehaviors.filter((b) => b.type === "positive");
+  const negativeBehaviors = studentBehaviors.filter((b) => b.type === "negative");
+  const behaviorScore = Math.min(100, Math.max(70, 95 + positiveBehaviors.length * 2 - negativeBehaviors.length * 3));
+
+  // GPA calculation
+  const totalScores = studentGrades.reduce((sum, g) => sum + g.percentage, 0);
+  const averageGpa = studentGrades.length > 0 ? Math.round(totalScores / studentGrades.length) : 96.5;
 
   return (
     <div className="space-y-4">
-      {/* Top Banner for Parent Portal */}
-      <div className="bg-white rounded-xl p-4 border border-slate-200 shadow-xs flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <div className="w-12 h-12 rounded-xl bg-purple-600 text-white flex items-center justify-center shadow-xs">
-            <GraduationCap className="w-6 h-6" />
-          </div>
+      {/* Top Banner: Student Information & Switcher */}
+      <div className="bg-white rounded-2xl p-4 sm:p-5 border border-slate-200 shadow-xs flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+        <div className="flex items-center gap-3.5">
+          <img
+            src={
+              currentStudent.photo ||
+              "https://images.unsplash.com/photo-1543610892-0b1f7e6d8ac1?w=200&h=200&fit=crop&crop=faces"
+            }
+            alt={currentStudent.fullName}
+            className="w-14 h-14 rounded-2xl object-cover ring-2 ring-purple-500/30 shadow-xs"
+          />
           <div>
-            <div className="flex items-center gap-2">
-              <h1 className="text-lg font-bold text-slate-900">بوابة ولي أمر الطالب والمتابعة التربوية</h1>
-              <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-purple-100 text-purple-800 border border-purple-200">
-                بوابة ولي الأمر
+            <div className="flex items-center gap-2 flex-wrap">
+              <h1 className="text-base sm:text-lg font-black text-slate-900">
+                {currentStudent.fullName}
+              </h1>
+              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-purple-100 text-purple-800 border border-purple-200">
+                {currentStudent.gradeName} • {currentStudent.sectionName}
+              </span>
+              <span className="text-[11px] font-mono text-slate-500">
+                رقم الطالب: <strong className="text-purple-700">{currentStudent.studentNumber}</strong>
               </span>
             </div>
-            <p className="text-xs text-slate-500 mt-0.5">
-              مرحباً {currentUser.fullName} • متابعة مستوى الطالب: <strong className="text-slate-800 font-bold">{currentStudent.fullName}</strong> ({currentStudent.gradeName} - {currentStudent.sectionName})
+            <p className="text-xs text-slate-500 mt-1">
+              ولي الأمر: <strong className="text-slate-800">{currentStudent.familyInfo?.fatherName || "ولي الأمر"}</strong> • الهاتف: <span className="font-mono">{currentStudent.familyInfo?.fatherPhone || "—"}</span>
             </p>
           </div>
         </div>
 
-        {/* Quick Tabs Navigation */}
-        <div className="flex flex-wrap gap-1.5 p-1 bg-slate-100 rounded-lg border border-slate-200 w-full md:w-auto">
-          <button
-            onClick={() => setActiveTab("academic")}
-            className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all flex items-center gap-1.5 ${
-              activeTab === "academic"
-                ? "bg-white text-purple-700 shadow-xs"
-                : "text-slate-600 hover:text-slate-900"
-            }`}
-          >
-            <User className="w-3.5 h-3.5" />
-            <span>ملف الطالب</span>
-          </button>
-
-          <button
-            onClick={() => setActiveTab("grades")}
-            className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all flex items-center gap-1.5 ${
-              activeTab === "grades"
-                ? "bg-white text-purple-700 shadow-xs"
-                : "text-slate-600 hover:text-slate-900"
-            }`}
-          >
-            <Award className="w-3.5 h-3.5" />
-            <span>كشف الدرجات والتقييم</span>
-          </button>
-
-          <button
-            onClick={() => setActiveTab("attendance")}
-            className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all flex items-center gap-1.5 ${
-              activeTab === "attendance"
-                ? "bg-white text-purple-700 shadow-xs"
-                : "text-slate-600 hover:text-slate-900"
-            }`}
-          >
-            <CalendarCheck className="w-3.5 h-3.5" />
-            <span>الحضور والانضباط</span>
-          </button>
-
-          <button
-            onClick={() => setActiveTab("bus_gps")}
-            className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all flex items-center gap-1.5 ${
-              activeTab === "bus_gps"
-                ? "bg-white text-purple-700 shadow-xs"
-                : "text-slate-600 hover:text-slate-900"
-            }`}
-          >
-            <Bus className="w-3.5 h-3.5" />
-            <span>تتبع باص المدرسة GPS</span>
-          </button>
-
-          <button
-            onClick={() => setActiveTab("finance")}
-            className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all flex items-center gap-1.5 ${
-              activeTab === "finance"
-                ? "bg-white text-purple-700 shadow-xs"
-                : "text-slate-600 hover:text-slate-900"
-            }`}
-          >
-            <CreditCard className="w-3.5 h-3.5" />
-            <span>الأقساط والرسوم</span>
-          </button>
-
-          <button
-            onClick={() => setActiveTab("feedback")}
-            className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all flex items-center gap-1.5 ${
-              activeTab === "feedback"
-                ? "bg-white text-purple-700 shadow-xs"
-                : "text-slate-600 hover:text-slate-900"
-            }`}
-          >
-            <MessageSquare className="w-3.5 h-3.5" />
-            <span>ملاحظات للإدارة والمعلمين</span>
-          </button>
-        </div>
-      </div>
-
-      {/* Student Selector & Direct Link Dispatcher Bar */}
-      <div className="bg-gradient-to-r from-purple-50 via-indigo-50 to-blue-50 border border-purple-200 rounded-xl p-3 sm:p-4 flex flex-col md:flex-row items-start md:items-center justify-between gap-3 shadow-2xs">
-        <div className="flex flex-wrap items-center gap-3 w-full md:w-auto">
-          <div className="flex items-center gap-2">
-            <span className="text-xs font-bold text-slate-700">الطالب الحالي:</span>
-            <select
-              value={selectedStudentId}
-              onChange={(e) => setSelectedStudentId(e.target.value)}
-              className="text-xs font-bold bg-white border border-purple-300 text-purple-900 rounded-lg px-2.5 py-1.5 focus:outline-hidden focus:ring-1 focus:ring-purple-500 shadow-2xs"
-            >
-              {students.map((st) => (
-                <option key={st.id} value={st.id}>
-                  {st.fullName} ({st.studentNumber}) - {st.gradeName}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div className="flex items-center gap-1.5 bg-white px-2.5 py-1 rounded-lg border border-purple-200 text-xs font-mono font-bold text-purple-700">
-            <span>رقم القيد الأكاديمي:</span>
-            <span className="bg-purple-100 px-1.5 py-0.5 rounded text-purple-900">
-              {currentStudent.studentNumber}
-            </span>
-          </div>
-        </div>
-
-        {/* Share & Copy Actions */}
+        {/* Right Action buttons */}
         <div className="flex flex-wrap items-center gap-2 w-full md:w-auto justify-end">
           <button
             onClick={handleCopyLink}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white border border-purple-300 hover:bg-purple-50 text-purple-800 text-xs font-bold shadow-2xs transition-colors"
-            title="نسخ الرابط المباشر لصفحة هذا الطالب"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-50 border border-slate-200 hover:bg-slate-100 text-slate-700 text-xs font-bold transition-colors cursor-pointer"
+            title="نسخ الرابط المباشر لولي الأمر"
           >
             {copiedLink ? (
               <>
                 <Check className="w-3.5 h-3.5 text-emerald-600" />
-                <span className="text-emerald-700">تم نسخ الرابط!</span>
+                <span className="text-emerald-700">تم النسخ</span>
               </>
             ) : (
               <>
                 <Copy className="w-3.5 h-3.5" />
-                <span>نسخ رابط الطالب</span>
+                <span>نسخ الرابط المباشر</span>
               </>
             )}
           </button>
 
           <button
             onClick={handleWhatsAppShare}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-2xs transition-colors"
-            title="إرسال الرابط لولي الأمر عبر واتساب"
-          >
-            <MessageSquare className="w-3.5 h-3.5" />
-            <span>إرسال واتساب 💬</span>
-          </button>
-
-          <button
-            onClick={() => openSmartLinksModal("parent", currentStudent.id)}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-purple-700 hover:bg-purple-800 text-white text-xs font-bold shadow-2xs transition-colors"
-            title="فتح مركز الروابط الذكية الشامل لكافة الطلاب والمعلمين"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition-colors cursor-pointer"
+            title="مشاركة الرابط عبر واتساب"
           >
             <Share2 className="w-3.5 h-3.5" />
-            <span>مركز الروابط الذكية</span>
+            <span>واتساب</span>
+          </button>
+
+          {/* Search another student button requested by user */}
+          <button
+            onClick={() => {
+              setIsSearchingAnother(true);
+              setStudentNumberInput("");
+            }}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-purple-50 hover:bg-purple-100 text-purple-800 border border-purple-200 text-xs font-bold transition-colors cursor-pointer"
+            title="إدخال رقم طالب آخر للاستعلام"
+          >
+            <Search className="w-3.5 h-3.5" />
+            <span>استعلام عن طالب آخر</span>
           </button>
         </div>
       </div>
 
-      {/* TAB 1: ACADEMIC PROFILE & SUMMARY */}
-      {activeTab === "academic" && (
-        <div className="space-y-4">
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-            {/* Student ID Card */}
-            <div className="wide-card">
-              <div className="card-header">
-                <span className="font-bold text-slate-800">بطاقة الطالب الأكاديمية</span>
-                <span className="status-pill bg-success text-[10px]">طالب نشط ومسجل</span>
-              </div>
+      {/* Main Navigation Tabs - EXACT 4 REQUESTED MODULES AT THE FRONT */}
+      <div className="flex flex-wrap gap-1.5 p-1 bg-slate-100 rounded-xl border border-slate-200">
+        {/* 1. العلامات (Marks & Grades) */}
+        <button
+          onClick={() => setActiveTab("grades")}
+          className={`px-4 py-2 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+            activeTab === "grades"
+              ? "bg-white text-purple-800 shadow-xs"
+              : "text-slate-600 hover:text-slate-900"
+          }`}
+        >
+          <Award className="w-3.5 h-3.5 text-amber-500" />
+          <span>العلامات والدرجات</span>
+        </button>
 
-              <div className="p-4 flex flex-col items-center text-center space-y-3">
-                <img
-                  src={currentStudent.photo || (currentStudent as any).avatar || "https://images.unsplash.com/photo-1543610892-0b1f7e6d8ac1?w=200&h=200&fit=crop&crop=faces"}
-                  alt={currentStudent.fullName}
-                  className="w-20 h-20 rounded-2xl object-cover ring-4 ring-purple-100 shadow-xs"
-                />
-                <div>
-                  <h3 className="font-bold text-base text-slate-900">{currentStudent.fullName}</h3>
-                  <p className="text-xs text-slate-500 mt-0.5">
-                    الرقم الأكاديمي: <span className="font-mono font-bold text-slate-700">{currentStudent.studentNumber}</span>
-                  </p>
-                </div>
+        {/* 2. السلوك (Behavior) */}
+        <button
+          onClick={() => setActiveTab("behavior")}
+          className={`px-4 py-2 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+            activeTab === "behavior"
+              ? "bg-white text-purple-800 shadow-xs"
+              : "text-slate-600 hover:text-slate-900"
+          }`}
+        >
+          <Sparkles className="w-3.5 h-3.5 text-emerald-500" />
+          <span>السلوك والانضباط</span>
+        </button>
 
-                <div className="w-full grid grid-cols-2 gap-2 text-xs pt-2 border-t border-slate-100 text-right">
-                  <div className="p-2 bg-slate-50 rounded-lg">
-                    <span className="text-[10px] text-slate-400 block">الصف الدراسي:</span>
-                    <strong className="text-slate-800">{currentStudent.gradeName}</strong>
-                  </div>
-                  <div className="p-2 bg-slate-50 rounded-lg">
-                    <span className="text-[10px] text-slate-400 block">الشعبة:</span>
-                    <strong className="text-slate-800">{currentStudent.sectionName}</strong>
-                  </div>
-                  <div className="p-2 bg-slate-50 rounded-lg">
-                    <span className="text-[10px] text-slate-400 block">فصيلة الدم:</span>
-                    <strong className="text-emerald-700 font-bold">{currentStudent.healthRecord?.bloodType || "A+"}</strong>
-                  </div>
-                  <div className="p-2 bg-slate-50 rounded-lg">
-                    <span className="text-[10px] text-slate-400 block">النقل المدرسي:</span>
-                    <strong className="text-purple-700">{currentStudent.transportation?.usesBus ? "مشترك بالباص" : "خاص"}</strong>
-                  </div>
-                </div>
-              </div>
-            </div>
+        {/* 3. التقييم (Evaluations) */}
+        <button
+          onClick={() => setActiveTab("evaluations")}
+          className={`px-4 py-2 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+            activeTab === "evaluations"
+              ? "bg-white text-purple-800 shadow-xs"
+              : "text-slate-600 hover:text-slate-900"
+          }`}
+        >
+          <Star className="w-3.5 h-3.5 text-blue-500" />
+          <span>التقييم الشامل والمهارات</span>
+        </button>
 
-            {/* Performance Indicators */}
-            <div className="lg:col-span-2 space-y-4">
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                <div className="stat-card">
-                  <span className="stat-label">المعدل التراكمي العام</span>
-                  <div className="stat-value text-purple-700">98.4%</div>
-                  <div className="text-[10px] text-emerald-600 font-bold mt-1">ممتاز مرتفع (A+)</div>
-                </div>
+        {/* 4. الغياب (Attendance & Absences) */}
+        <button
+          onClick={() => setActiveTab("attendance")}
+          className={`px-4 py-2 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+            activeTab === "attendance"
+              ? "bg-white text-purple-800 shadow-xs"
+              : "text-slate-600 hover:text-slate-900"
+          }`}
+        >
+          <CalendarCheck className="w-3.5 h-3.5 text-indigo-500" />
+          <span>الغياب والحضور</span>
+        </button>
 
-                <div className="stat-card">
-                  <span className="stat-label">الترتيب على الصف</span>
-                  <div className="stat-value text-blue-700">الأول 🥇</div>
-                  <div className="text-[10px] text-slate-500 mt-1">من بين 26 طالباً</div>
-                </div>
+        {/* Additional helpful tabs */}
+        <button
+          onClick={() => setActiveTab("finance")}
+          className={`px-3.5 py-2 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+            activeTab === "finance"
+              ? "bg-white text-purple-800 shadow-xs"
+              : "text-slate-600 hover:text-slate-900"
+          }`}
+        >
+          <CreditCard className="w-3.5 h-3.5" />
+          <span>الأقساط والرسوم</span>
+        </button>
 
-                <div className="stat-card">
-                  <span className="stat-label">نسبة الحضور والالتزام</span>
-                  <div className="stat-value text-emerald-700">100%</div>
-                  <div className="text-[10px] text-emerald-600 font-bold mt-1">لا يوجد غياب مسجل</div>
-                </div>
-              </div>
+        <button
+          onClick={() => setActiveTab("bus_gps")}
+          className={`px-3.5 py-2 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+            activeTab === "bus_gps"
+              ? "bg-white text-purple-800 shadow-xs"
+              : "text-slate-600 hover:text-slate-900"
+          }`}
+        >
+          <Bus className="w-3.5 h-3.5" />
+          <span>الحافلة المدرسية</span>
+        </button>
 
-              {/* Recent Honors and Notes */}
-              <div className="wide-card">
-                <div className="card-header">
-                  <div className="flex items-center gap-2 font-bold text-slate-800">
-                    <Sparkles className="w-4 h-4 text-amber-500" />
-                    <span>أحدث الإشادات وشهادات التقدير من المعلمين</span>
-                  </div>
-                  <span className="text-[11px] text-slate-500">الفصل الدراسي الحالي</span>
-                </div>
+        <button
+          onClick={() => setActiveTab("feedback")}
+          className={`px-3.5 py-2 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+            activeTab === "feedback"
+              ? "bg-white text-purple-800 shadow-xs"
+              : "text-slate-600 hover:text-slate-900"
+          }`}
+        >
+          <MessageSquare className="w-3.5 h-3.5" />
+          <span>التواصل مع المدرسة</span>
+        </button>
+      </div>
 
-                <div className="p-3 space-y-2.5">
-                  <div className="p-3 bg-emerald-50/70 border border-emerald-200 rounded-xl space-y-1">
-                    <div className="flex items-center justify-between">
-                      <span className="font-bold text-xs text-emerald-900">
-                        ⭐ وسام التميز القرائي والإلقاء الإذاعي
-                      </span>
-                      <span className="text-[10px] text-emerald-600 font-mono">2026-02-27</span>
-                    </div>
-                    <p className="text-xs text-emerald-800 leading-relaxed">
-                      "يوسف من الطلاب المتميزين خلقاً وعلماً، وقدم أداءً رائعاً في مسابقة القراءة الإثرائية للصف الأول الابتدائي."
-                    </p>
-                    <div className="text-[10px] text-emerald-700 font-semibold pt-1">
-                      المعلمة: أ. فاطمة الزهراء الشامي (معلمة اللغة العربية)
-                    </div>
-                  </div>
-
-                  <div className="p-3 bg-blue-50/70 border border-blue-200 rounded-xl space-y-1">
-                    <div className="flex items-center justify-between">
-                      <span className="font-bold text-xs text-blue-900">
-                        🏆 التفوق في الرياضيات والحساب الذهني
-                      </span>
-                      <span className="text-[10px] text-blue-600 font-mono">2026-02-15</span>
-                    </div>
-                    <p className="text-xs text-blue-800 leading-relaxed">
-                      "حصل يوسف على الدرجة الكاملة في الاختبار الشهري لمادة الرياضيات وسرعة بديهة في حل المسائل."
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* TAB 2: GRADES & EXAMS RESULTS */}
+      {/* ======================================================== */}
+      {/* 1. العلامات والدرجات (Marks & Grades) */}
+      {/* ======================================================== */}
       {activeTab === "grades" && (
-        <div className="wide-card">
-          <div className="card-header">
-            <div className="flex items-center gap-2 font-bold text-slate-800">
-              <Award className="w-4 h-4 text-purple-600" />
-              <span>كشف الدرجات والنتائج الرسمية للطالب {currentStudent.fullName}</span>
-            </div>
-            <button
-              onClick={() => alert("جاري تحميل الشهادة وبطاقة التقرير بصيغة PDF معتمدة...")}
-              className="text-[11px] bg-purple-50 hover:bg-purple-100 text-purple-700 border border-purple-200 px-2.5 py-1 rounded font-bold flex items-center gap-1"
-            >
-              <Download className="w-3 h-3" />
-              تحميل الشهادة (PDF)
-            </button>
-          </div>
-
-          <div className="overflow-x-auto">
-            <table className="data-table">
-              <thead>
-                <tr>
-                  <th>المادة الدراسية</th>
-                  <th>الاختبار / التقييم</th>
-                  <th>الدرجة المحرزة</th>
-                  <th>الدرجة العظمى</th>
-                  <th>النسبة المئوية</th>
-                  <th>التقدير</th>
-                  <th>ملاحظة المعلم</th>
-                </tr>
-              </thead>
-              <tbody>
-                {[
-                  { subj: "لغتي الجميلة", exam: "الاختبار النصفي الثاني", score: 99, max: 100, letter: "ممتاز (A+)", note: "متميز ومتقن لمهارات الإملاء والقراءة" },
-                  { subj: "الرياضيات", exam: "الاختبار النصفي الثاني", score: 100, max: 100, letter: "ممتاز (A+)", note: "الدرجة الكاملة ماشاء الله" },
-                  { subj: "القرآن الكريم والتجويد", exam: "الاختبار النصفي الثاني", score: 98, max: 100, letter: "ممتاز (A+)", note: "حفظ متقن ومخارج حروف سليمة" },
-                  { subj: "العلوم والحياة", exam: "الاختبار النصفي الثاني", score: 97, max: 100, letter: "ممتاز (A+)", note: "مشاركة ممتازة في التجارب الصفية" },
-                  { subj: "اللغة الإنجليزية (English)", exam: "الاختبار النصفي الثاني", score: 98, max: 100, letter: "ممتاز (A+)", note: "Excellent vocabulary & speaking" },
-                  { subj: "التربية الفنية والبدنية", exam: "التقييم المستمر", score: 100, max: 100, letter: "ممتاز (A+)", note: "انضباط وروح رياضية عالية" },
-                ].map((row, idx) => (
-                  <tr key={idx} className="hover:bg-slate-50/70">
-                    <td className="font-bold text-slate-900">{row.subj}</td>
-                    <td className="text-slate-600 text-xs">{row.exam}</td>
-                    <td className="font-bold text-purple-700 text-sm font-mono">{row.score}</td>
-                    <td className="font-mono text-slate-400 text-xs">{row.max}</td>
-                    <td className="font-bold text-slate-800">{row.score}%</td>
-                    <td>
-                      <span className="status-pill bg-success text-[10px]">{row.letter}</span>
-                    </td>
-                    <td className="text-xs text-slate-600">{row.note}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
-
-      {/* TAB 3: ATTENDANCE */}
-      {activeTab === "attendance" && (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-          <div className="wide-card">
-            <div className="card-header">
-              <span className="font-bold text-slate-800">إحصائيات الحضور لهذا الشهر</span>
-              <CalendarCheck className="w-4 h-4 text-emerald-600" />
-            </div>
-
-            <div className="p-4 space-y-3">
-              <div className="p-3 bg-emerald-50 rounded-xl border border-emerald-200 flex items-center justify-between">
-                <div>
-                  <div className="text-xs text-emerald-800 font-semibold">أيام الحضور الفعلي</div>
-                  <div className="text-xl font-bold text-emerald-900 font-mono">22 يوماً</div>
-                </div>
-                <CheckCircle2 className="w-8 h-8 text-emerald-600" />
-              </div>
-
-              <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 flex items-center justify-between">
-                <div>
-                  <div className="text-xs text-slate-600 font-semibold">أيام الغياب بدون عذر</div>
-                  <div className="text-xl font-bold text-slate-800 font-mono">0 أيام</div>
-                </div>
-                <span className="status-pill bg-success text-[10px]">منضبط تماماً</span>
-              </div>
-
-              <div className="p-3 bg-amber-50 rounded-xl border border-amber-200 flex items-center justify-between">
-                <div>
-                  <div className="text-xs text-amber-800 font-semibold">حالات التأخير الصباحي</div>
-                  <div className="text-xl font-bold text-amber-900 font-mono">0 دقائق</div>
-                </div>
-                <Clock className="w-6 h-6 text-amber-600" />
-              </div>
-            </div>
-          </div>
-
-          <div className="lg:col-span-2 wide-card">
-            <div className="card-header">
-              <span>سجل الحضور اليومي للأسبوع الحالي</span>
-              <span className="text-[11px] text-slate-500">فبراير 2026</span>
-            </div>
-
-            <div className="divide-y divide-slate-100">
-              {[
-                { day: "الخميس 26 فبراير", time: "07:20 ص", status: "حاضر في الموعد", isOk: true },
-                { day: "الأربعاء 25 فبراير", time: "07:18 ص", status: "حاضر في الموعد", isOk: true },
-                { day: "الثلاثاء 24 فبراير", time: "07:22 ص", status: "حاضر في الموعد", isOk: true },
-                { day: "الإثنين 23 فبراير", time: "07:15 ص", status: "حاضر في الموعد", isOk: true },
-                { day: "الأحد 22 فبراير", time: "07:19 ص", status: "حاضر في الموعد", isOk: true },
-              ].map((rec, i) => (
-                <div key={i} className="p-3.5 flex items-center justify-between hover:bg-slate-50/50">
-                  <div className="flex items-center gap-2.5">
-                    <div className="w-8 h-8 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center font-bold text-xs">
-                      ✓
-                    </div>
-                    <div>
-                      <div className="font-bold text-xs text-slate-900">{rec.day}</div>
-                      <div className="text-[10px] text-slate-400 font-mono">وقت تسجيل الدخول عبر البوابة: {rec.time}</div>
-                    </div>
-                  </div>
-                  <span className="status-pill bg-success text-[10px]">{rec.status}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* TAB 4: LIVE GPS BUS TRACKING */}
-      {activeTab === "bus_gps" && (
         <div className="space-y-4">
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-            <div className="wide-card">
-              <div className="card-header">
-                <span className="font-bold text-slate-800">بيانات حافلة الطالب</span>
-                <span className="status-pill bg-success text-[10px]">الرحلة نشطة الآن 🟢</span>
+          {/* Summary KPI Cards */}
+          <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
+            <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs">
+              <span className="text-slate-500 text-xs font-semibold">المعدل العام (GPA)</span>
+              <div className="text-2xl font-black text-purple-800 mt-1">{averageGpa}%</div>
+              <div className="text-[10px] text-emerald-600 font-bold mt-0.5">تقدير ممتاز مرتفع A+</div>
+            </div>
+            <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs">
+              <span className="text-slate-500 text-xs font-semibold">الترتيب الأكاديمي</span>
+              <div className="text-2xl font-black text-blue-700 mt-1">الأول 🥇</div>
+              <div className="text-[10px] text-slate-500 mt-0.5">على مستوى الشعبة (أ)</div>
+            </div>
+            <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs">
+              <span className="text-slate-500 text-xs font-semibold">الاختبارات المرصودة</span>
+              <div className="text-2xl font-black text-indigo-700 mt-1">
+                {studentGrades.length || 3} اختبارات
+              </div>
+              <div className="text-[10px] text-slate-500 mt-0.5">الفصل الدراسي الثاني</div>
+            </div>
+            <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs">
+              <span className="text-slate-500 text-xs font-semibold">النتيجة والاعتماد</span>
+              <div className="text-2xl font-black text-emerald-700 mt-1">ناجح ومجتاز</div>
+              <div className="text-[10px] text-emerald-600 font-bold mt-0.5">معتمد من إدارة المدرسة</div>
+            </div>
+          </div>
+
+          {/* Detailed Grades Sheet */}
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
+            <div className="p-4 border-b border-slate-100 flex items-center justify-between flex-wrap gap-2">
+              <div className="flex items-center gap-2">
+                <Award className="w-5 h-5 text-amber-500" />
+                <h3 className="font-bold text-slate-900 text-sm">
+                  كشف العلامات والدرجات التفصيلي للطالب
+                </h3>
               </div>
 
-              <div className="p-4 space-y-3 text-xs">
-                <div className="p-3 bg-amber-50 rounded-xl border border-amber-200 flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-lg bg-amber-500 text-white flex items-center justify-center">
-                    <Bus className="w-6 h-6" />
-                  </div>
-                  <div>
-                    <div className="font-bold text-amber-950 text-sm">{studentBusRoute.name}</div>
-                    <div className="text-[11px] text-amber-800">رقم اللوحة: {studentBusRoute.plateNumber}</div>
-                  </div>
-                </div>
+              <button
+                onClick={() => window.print()}
+                className="px-3.5 py-1.5 rounded-xl bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-200 text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
+              >
+                <Printer className="w-3.5 h-3.5" />
+                <span>طباعة الكشف الرسمي</span>
+              </button>
+            </div>
 
-                <div className="space-y-2 border-t border-slate-100 pt-2 text-slate-700">
-                  <div className="flex justify-between">
-                    <span className="text-slate-400">السائق:</span>
-                    <strong>{studentBusRoute.driverName}</strong>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-slate-400">المشرف:</span>
-                    <strong>{studentBusRoute.supervisorName}</strong>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-slate-400">هاتف السائق:</span>
-                    <a
-                      href={`tel:${studentBusRoute.driverPhone}`}
-                      className="font-mono text-indigo-600 hover:underline flex items-center gap-1 font-bold"
-                    >
-                      <Phone className="w-3 h-3" />
-                      {studentBusRoute.driverPhone}
-                    </a>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-slate-400">نقطة الالتقاط:</span>
-                    <strong className="text-slate-900">{currentStudent.transportation?.pickupLocation || "أمام المنزل"}</strong>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-slate-400">وقت الوصول التقديري (ETA):</span>
-                    <strong className="text-emerald-700 font-bold">4 دقائق (07:12 ص)</strong>
-                  </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-right text-xs">
+                <thead className="bg-slate-50 text-slate-700 font-bold border-b border-slate-200">
+                  <tr>
+                    <th className="p-3.5">المادة الدراسية</th>
+                    <th className="p-3.5">نوع الاختبار</th>
+                    <th className="p-3.5">الدرجة المحصلة</th>
+                    <th className="p-3.5">الدرجة العظمى</th>
+                    <th className="p-3.5">النسبة المئوية</th>
+                    <th className="p-3.5">التقدير</th>
+                    <th className="p-3.5">ملاحظات المعلم / المعلمة</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 text-slate-800">
+                  {studentGrades.length > 0 ? (
+                    studentGrades.map((gr) => (
+                      <tr key={gr.id} className="hover:bg-slate-50/70">
+                        <td className="p-3.5 font-bold text-slate-900 flex items-center gap-2">
+                          <BookOpen className="w-3.5 h-3.5 text-blue-600" />
+                          <span>{gr.subjectName}</span>
+                        </td>
+                        <td className="p-3.5 text-slate-600">{gr.examTitle} ({gr.examType})</td>
+                        <td className="p-3.5 font-bold text-purple-900 text-sm font-mono">
+                          {gr.score}
+                        </td>
+                        <td className="p-3.5 text-slate-500 font-mono">{gr.maxScore}</td>
+                        <td className="p-3.5 font-bold text-emerald-700 font-mono">
+                          {gr.percentage}%
+                        </td>
+                        <td className="p-3.5">
+                          <span
+                            className={`px-2 py-0.5 rounded-md text-[10px] font-bold ${
+                              gr.percentage >= 90
+                                ? "bg-emerald-50 text-emerald-800 border border-emerald-200"
+                                : "bg-blue-50 text-blue-800 border border-blue-200"
+                            }`}
+                          >
+                            {gr.letterGrade}
+                          </span>
+                        </td>
+                        <td className="p-3.5 text-slate-600 leading-relaxed max-w-xs">
+                          {gr.notes || "مستوى متميز وحلول دقيقة."}
+                        </td>
+                      </tr>
+                    ))
+                  ) : (
+                    // Default fallback grades for display
+                    <>
+                      <tr className="hover:bg-slate-50/70">
+                        <td className="p-3.5 font-bold text-slate-900 flex items-center gap-2">
+                          <BookOpen className="w-3.5 h-3.5 text-blue-600" />
+                          <span>لغتي الجميلة (اللغة العربية)</span>
+                        </td>
+                        <td className="p-3.5 text-slate-600">اختبار منتصف الفصل الثاني (نصفي)</td>
+                        <td className="p-3.5 font-bold text-purple-900 text-sm font-mono">39</td>
+                        <td className="p-3.5 text-slate-500 font-mono">40</td>
+                        <td className="p-3.5 font-bold text-emerald-700 font-mono">97.5%</td>
+                        <td className="p-3.5">
+                          <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200">
+                            ممتاز مرتفع A+
+                          </span>
+                        </td>
+                        <td className="p-3.5 text-slate-600">قراءة متقنة وتهجئة سليمة للحروف بحركاتها.</td>
+                      </tr>
+                      <tr className="hover:bg-slate-50/70">
+                        <td className="p-3.5 font-bold text-slate-900 flex items-center gap-2">
+                          <BookOpen className="w-3.5 h-3.5 text-blue-600" />
+                          <span>الرياضيات والحساب</span>
+                        </td>
+                        <td className="p-3.5 text-slate-600">اختبار منتصف الفصل الثاني (نصفي)</td>
+                        <td className="p-3.5 font-bold text-purple-900 text-sm font-mono">38</td>
+                        <td className="p-3.5 text-slate-500 font-mono">40</td>
+                        <td className="p-3.5 font-bold text-emerald-700 font-mono">95%</td>
+                        <td className="p-3.5">
+                          <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200">
+                            ممتاز A+
+                          </span>
+                        </td>
+                        <td className="p-3.5 text-slate-600">فهم سريع لعمليات الجمع والطرح ومقارنة الأعداد.</td>
+                      </tr>
+                      <tr className="hover:bg-slate-50/70">
+                        <td className="p-3.5 font-bold text-slate-900 flex items-center gap-2">
+                          <BookOpen className="w-3.5 h-3.5 text-blue-600" />
+                          <span>العلوم العامة واستكشاف الطبيعة</span>
+                        </td>
+                        <td className="p-3.5 text-slate-600">الاختبار الشهري التراكمي (شهري)</td>
+                        <td className="p-3.5 font-bold text-purple-900 text-sm font-mono">29</td>
+                        <td className="p-3.5 text-slate-500 font-mono">30</td>
+                        <td className="p-3.5 font-bold text-emerald-700 font-mono">96.6%</td>
+                        <td className="p-3.5">
+                          <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200">
+                            ممتاز A+
+                          </span>
+                        </td>
+                        <td className="p-3.5 text-slate-600">تفاعل استثنائي في التجارب والتصنيف البيئي.</td>
+                      </tr>
+                    </>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ======================================================== */}
+      {/* 2. السلوك والانضباط (Conduct & Behavior) */}
+      {/* ======================================================== */}
+      {activeTab === "behavior" && (
+        <div className="space-y-4">
+          {/* Conduct Score Banner */}
+          <div className="bg-gradient-to-r from-emerald-900 via-teal-900 to-slate-900 text-white rounded-2xl p-5 shadow-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <div className="flex items-center gap-3.5">
+              <div className="w-14 h-14 rounded-2xl bg-white/10 border border-white/20 flex items-center justify-center text-amber-300">
+                <Sparkles className="w-7 h-7" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <h3 className="text-base font-black">درجة السلوك والانضباط المدرسي</h3>
+                  <span className="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-400/30 text-[10px] font-bold">
+                    سلوك نموذجي
+                  </span>
                 </div>
+                <p className="text-xs text-slate-300 mt-0.5">
+                  تقييم السلوك والمواظبة والأخلاق الفاضلة وفق لائحة السلوك والانضباط المدرسي
+                </p>
               </div>
             </div>
 
-            {/* Live GPS Radar Mock Visualizer */}
-            <div className="lg:col-span-2 wide-card">
-              <div className="card-header">
-                <div className="flex items-center gap-2 font-bold text-slate-800">
-                  <MapPin className="w-4 h-4 text-rose-600 animate-bounce" />
-                  <span>تتبع موقع الحافلة اللحظي على الخريطة (GPS Radar)</span>
+            <div className="text-left sm:text-right">
+              <div className="text-3xl font-black text-amber-300 font-mono">{behaviorScore} / 100</div>
+              <div className="text-[11px] text-emerald-200">مستوى السلوك: ممتاز</div>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Positive behaviors and merits */}
+            <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
+              <div className="p-4 border-b border-slate-100 flex items-center justify-between bg-emerald-50/50">
+                <div className="flex items-center gap-2 text-emerald-800 font-bold text-xs">
+                  <Award className="w-4 h-4 text-emerald-600" />
+                  <span>الإشادات وأوسمة التميز المسجلة ({positiveBehaviors.length || 2})</span>
                 </div>
-                <span className="text-[11px] font-mono text-emerald-600 font-bold">
-                  سرعة الحافلة: {studentBusRoute.currentGps?.speed || 38} كم/س
+                <span className="text-[10px] text-emerald-700 bg-white px-2 py-0.5 rounded border border-emerald-200 font-bold">
+                  نقاط إيجابية +
                 </span>
               </div>
 
-              <div className="p-4 bg-slate-900 rounded-xl m-3 text-white relative min-h-[300px] flex flex-col justify-between overflow-hidden shadow-inner">
-                {/* Radar Grid Circles */}
-                <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-20">
-                  <div className="w-64 h-64 border border-emerald-500 rounded-full animate-ping" />
-                  <div className="w-48 h-48 border border-emerald-400 rounded-full absolute" />
-                  <div className="w-32 h-32 border border-emerald-300 rounded-full absolute" />
-                </div>
-
-                <div className="relative z-10 flex justify-between items-start">
-                  <div className="bg-slate-800/80 backdrop-blur-xs p-2.5 rounded-lg border border-slate-700 text-xs">
-                    <div className="text-slate-400 text-[10px]">الموقع الحالي للحافلة:</div>
-                    <div className="font-bold text-emerald-400">{studentBusRoute.currentGps?.currentStop || "شارع الإمام الشافعي - قرب جامع الراجحي"}</div>
-                  </div>
-
-                  <div className="bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 px-2.5 py-1 rounded-full text-[11px] font-bold flex items-center gap-1.5">
-                    <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-                    <span>اتصال الأقمار الصناعية مباشر (Live GPS)</span>
-                  </div>
-                </div>
-
-                {/* Center Animated Bus Indicator */}
-                <div className="relative z-10 my-8 flex flex-col items-center justify-center">
-                  <div className="w-14 h-14 rounded-2xl bg-amber-500 text-slate-950 flex items-center justify-center shadow-lg shadow-amber-500/50 animate-pulse">
-                    <Bus className="w-8 h-8" />
-                  </div>
-                  <div className="text-xs font-bold text-amber-300 mt-2 bg-slate-800/90 px-3 py-1 rounded-full border border-amber-400/30">
-                    حافلة #104 في طريقها إلى منزلك • باقي 800 متر
-                  </div>
-                </div>
-
-                <div className="relative z-10 bg-slate-800/90 p-3 rounded-lg border border-slate-700 text-xs flex items-center justify-between">
-                  <span>تم تأكيد صعود الطالب صباحاً: <strong className="text-emerald-400">نعم (07:15 ص)</strong></span>
-                  <span className="text-slate-400 text-[10px]">التحديث الأخير: منذ 12 ثانية</span>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* TAB 5: FINANCE & TUITION PAYMENTS */}
-      {activeTab === "finance" && (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-          <div className="wide-card">
-            <div className="card-header">
-              <span className="font-bold text-slate-800">الملخص المالي لرسوم الطالب</span>
-              <CreditCard className="w-4 h-4 text-purple-600" />
-            </div>
-
-            <div className="p-4 space-y-3 text-xs">
-              <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-1.5">
-                <div className="flex justify-between">
-                  <span className="text-slate-500">الرسوم الدراسية السنوية:</span>
-                  <strong className="text-slate-900 font-mono">{(currentStudent.finance?.annualTuition || 15000).toLocaleString()} ر.س</strong>
-                </div>
-                <div className="flex justify-between text-emerald-700">
-                  <span>خصم التفوق الممنوح:</span>
-                  <strong className="font-mono">- {(currentStudent.finance?.discountAmount || 3000).toLocaleString()} ر.س</strong>
-                </div>
-                <div className="flex justify-between pt-1 border-t border-slate-200 font-bold">
-                  <span className="text-slate-800">إجمالي الرسوم الصافية:</span>
-                  <strong className="text-slate-900 font-mono">{(currentStudent.finance?.netAmount || 12000).toLocaleString()} ر.س</strong>
-                </div>
-              </div>
-
-              <div className="p-3 bg-emerald-50 rounded-xl border border-emerald-200 flex justify-between items-center">
-                <div>
-                  <span className="text-[10px] text-emerald-800 block">المبلغ المسدد حتى الآن:</span>
-                  <strong className="text-base text-emerald-900 font-mono font-bold">
-                    {(currentStudent.finance?.paidAmount || 12000).toLocaleString()} ر.س
-                  </strong>
-                </div>
-                <span className="status-pill bg-success text-[10px]">مسدد</span>
-              </div>
-
-              <div className="p-3 bg-purple-50 rounded-xl border border-purple-200 flex justify-between items-center">
-                <div>
-                  <span className="text-[10px] text-purple-800 block">المتبقي المطلوب:</span>
-                  <strong className="text-base text-purple-900 font-mono font-bold">
-                    {(currentStudent.finance?.balance || 0).toLocaleString()} ر.س
-                  </strong>
-                </div>
-                <button
-                  onClick={() => setShowPayModal(true)}
-                  className="bg-purple-600 hover:bg-purple-700 text-white px-3 py-1.5 rounded-lg font-bold text-xs shadow-xs"
-                >
-                  سداد إلكتروني
-                </button>
-              </div>
-            </div>
-          </div>
-
-          <div className="lg:col-span-2 wide-card">
-            <div className="card-header">
-              <span>سندات القبض وإيصالات السداد الصادرة</span>
-              <span className="text-[11px] text-slate-500">موثقة ومعتمدة</span>
-            </div>
-
-            <div className="p-3 space-y-2.5">
-              <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-200 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-                <div>
-                  <div className="flex items-center gap-2">
-                    <Receipt className="w-4 h-4 text-purple-600" />
-                    <span className="font-bold text-xs text-slate-900">سند قبض رقم: REC-994411</span>
-                  </div>
-                  <div className="text-[11px] text-slate-500 mt-1">
-                    الدفعة الأولى (التسجيل والرسوم المدرسية) • تاريخ: 2025-08-25
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-3 w-full sm:w-auto justify-between sm:justify-end">
-                  <div className="text-right">
-                    <span className="font-bold text-emerald-700 text-sm font-mono block">12,000 ر.س</span>
-                    <span className="text-[10px] text-slate-400">تحويل بنكي الراجحي</span>
-                  </div>
-                  <button
-                    onClick={() => alert("جاري فتح الإيصال الإلكتروني للطباعة...")}
-                    className="p-1.5 bg-white hover:bg-slate-100 rounded border border-slate-200 text-slate-600"
-                    title="تحميل الإيصال"
-                  >
-                    <Download className="w-4 h-4" />
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* TAB 6: FEEDBACK & NOTES TO ADMINISTRATION AND TEACHERS (KEY USER REQUEST) */}
-      {activeTab === "feedback" && (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-          {/* New Feedback Form */}
-          <div className="wide-card">
-            <div className="card-header">
-              <span className="font-bold text-slate-900">إرسال ملاحظة أو استفسار جديد</span>
-              <Send className="w-4 h-4 text-purple-600" />
-            </div>
-
-            <form onSubmit={handleSendFeedback} className="p-4 space-y-3">
-              {feedbackSuccessToast && (
-                <div className="p-2.5 bg-emerald-50 border border-emerald-300 text-emerald-800 rounded-lg text-xs font-bold flex items-center gap-1.5 animate-in fade-in">
-                  <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                  تم إرسال ملاحظتك بنجاح إلى المدرسة، وسيتم الرد عليك في أقرب وقت.
-                </div>
-              )}
-
-              <div>
-                <label className="text-[11px] font-bold text-slate-700 block mb-1">الجهة الموجه إليها الملاحظة:</label>
-                <div className="grid grid-cols-2 gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setFeedbackRecipient("admin")}
-                    className={`py-1.5 rounded-md text-xs font-bold border transition-all ${
-                      feedbackRecipient === "admin"
-                        ? "bg-purple-50 border-purple-500 text-purple-900 shadow-xs"
-                        : "border-slate-200 text-slate-600 hover:bg-slate-50"
-                    }`}
-                  >
-                    🏛️ إدارة المدرسة
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setFeedbackRecipient("teacher")}
-                    className={`py-1.5 rounded-md text-xs font-bold border transition-all ${
-                      feedbackRecipient === "teacher"
-                        ? "bg-purple-50 border-purple-500 text-purple-900 shadow-xs"
-                        : "border-slate-200 text-slate-600 hover:bg-slate-50"
-                    }`}
-                  >
-                    👨‍🏫 المعلم المعني
-                  </button>
-                </div>
-              </div>
-
-              <div>
-                <label className="text-[11px] font-bold text-slate-700 block mb-1">عنوان الملاحظة / الاستفسار:</label>
-                <input
-                  type="text"
-                  value={feedbackSubject}
-                  onChange={(e) => setFeedbackSubject(e.target.value)}
-                  placeholder="مثال: استفسار بخصوص مشروع مادة العلوم"
-                  required
-                  className="w-full bg-slate-50 border border-slate-200 rounded-md p-2 text-xs focus:border-purple-500"
-                />
-              </div>
-
-              <div>
-                <label className="text-[11px] font-bold text-slate-700 block mb-1">تفاصيل الملاحظة:</label>
-                <textarea
-                  value={feedbackContent}
-                  onChange={(e) => setFeedbackContent(e.target.value)}
-                  rows={4}
-                  placeholder="اكتب ملاحظتك أو مقترحك أو استفسارك بالتفصيل..."
-                  required
-                  className="w-full bg-slate-50 border border-slate-200 rounded-md p-2 text-xs focus:border-purple-500"
-                />
-              </div>
-
-              <button
-                type="submit"
-                className="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs py-2.5 rounded-lg shadow-xs transition-colors flex items-center justify-center gap-1.5"
-              >
-                <Send className="w-3.5 h-3.5" />
-                <span>إرسال الملاحظة للإدارة / المعلم</span>
-              </button>
-            </form>
-          </div>
-
-          {/* Conversation & Replies History */}
-          <div className="lg:col-span-2 wide-card">
-            <div className="card-header">
-              <div className="flex items-center gap-2 font-bold text-slate-800">
-                <MessageSquare className="w-4 h-4 text-purple-600" />
-                <span>سجل الملاحظات والمحادثات مع الإدارة والمعلمين ({parentMessages.length})</span>
-              </div>
-              <span className="text-[11px] text-slate-400">ردود رسمية مباشرة</span>
-            </div>
-
-            <div className="p-3 space-y-3 max-h-[550px] overflow-y-auto">
-              {parentMessages.length === 0 ? (
-                <div className="text-center py-10 text-slate-400 text-xs">
-                  لا توجد ملاحظات مرسلة حالياً. يمكنك استخدام النموذج المجاور لإرسال أول ملاحظة.
-                </div>
-              ) : (
-                parentMessages.map((msg) => (
-                  <div
-                    key={msg.id}
-                    className="p-3.5 bg-slate-50 rounded-xl border border-slate-200 space-y-2.5"
-                  >
-                    <div className="flex items-center justify-between border-b border-slate-200/70 pb-2">
-                      <div>
-                        <span className="font-bold text-xs text-slate-900">{msg.subject}</span>
-                        <div className="text-[10px] text-slate-400 font-mono mt-0.5">
-                          إلى: {msg.receiverName} ({msg.receiverRole}) • {msg.timestamp}
-                        </div>
+              <div className="p-4 space-y-3">
+                {positiveBehaviors.length > 0 ? (
+                  positiveBehaviors.map((beh) => (
+                    <div
+                      key={beh.id}
+                      className="p-3.5 rounded-xl border border-emerald-100 bg-emerald-50/30 space-y-1.5 text-xs"
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="font-bold text-emerald-950 flex items-center gap-1">
+                          <span>⭐</span> {beh.title}
+                        </span>
+                        <span className="text-[10px] text-slate-400 font-mono">{beh.date}</span>
                       </div>
-                      <span className="status-pill bg-info text-[10px]">
-                        {msg.replies && msg.replies.length > 0 ? "تم الرد ✓" : "قيد المتابعة"}
+                      <p className="text-slate-700 leading-relaxed text-[11px]">
+                        {beh.description}
+                      </p>
+                      <div className="text-[10px] text-emerald-700 font-semibold pt-1 flex items-center justify-between">
+                        <span>المسجل: {beh.reportedBy}</span>
+                        <span className="bg-emerald-100 px-1.5 py-0.5 rounded font-bold">
+                          +{beh.points} نقاط
+                        </span>
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <>
+                    <div className="p-3.5 rounded-xl border border-emerald-100 bg-emerald-50/30 space-y-1.5 text-xs">
+                      <div className="flex items-center justify-between">
+                        <span className="font-bold text-emerald-950 flex items-center gap-1">
+                          <span>⭐</span> وسام الانضباط وحسن الخلق
+                        </span>
+                        <span className="text-[10px] text-slate-400 font-mono">2026-02-22</span>
+                      </div>
+                      <p className="text-slate-700 leading-relaxed text-[11px]">
+                        إظهار التزام تام باللوائح المدرسية ومساعدة الزملاء وحسن التعامل مع الكادر التدريسي.
+                      </p>
+                      <div className="text-[10px] text-emerald-700 font-semibold pt-1 flex items-center justify-between">
+                        <span>المسجل: إدارة شؤون الطلاب</span>
+                        <span className="bg-emerald-100 px-1.5 py-0.5 rounded font-bold">+5 نقاط</span>
+                      </div>
+                    </div>
+
+                    <div className="p-3.5 rounded-xl border border-emerald-100 bg-emerald-50/30 space-y-1.5 text-xs">
+                      <div className="flex items-center justify-between">
+                        <span className="font-bold text-emerald-950 flex items-center gap-1">
+                          <span>🏆</span> المشاركة الفاعلة في الإذاعة الصباحية
+                        </span>
+                        <span className="text-[10px] text-slate-400 font-mono">2026-02-18</span>
+                      </div>
+                      <p className="text-slate-700 leading-relaxed text-[11px]">
+                        إلقاء متميز في طابور الصباح ونيل استحسان المعلمين والطلاب.
+                      </p>
+                      <div className="text-[10px] text-emerald-700 font-semibold pt-1 flex items-center justify-between">
+                        <span>المسجل: أ. ريم عبد الله البكري</span>
+                        <span className="bg-emerald-100 px-1.5 py-0.5 rounded font-bold">+5 نقاط</span>
+                      </div>
+                    </div>
+                  </>
+                )}
+              </div>
+            </div>
+
+            {/* Observations or Disciplinary records */}
+            <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
+              <div className="p-4 border-b border-slate-100 flex items-center justify-between bg-slate-50">
+                <div className="flex items-center gap-2 text-slate-800 font-bold text-xs">
+                  <ShieldCheck className="w-4 h-4 text-blue-600" />
+                  <span>الملاحظات والتوجيهات التربوية ({negativeBehaviors.length})</span>
+                </div>
+                <span className="text-[10px] text-slate-500 font-bold">سجل المتابعة</span>
+              </div>
+
+              <div className="p-4 space-y-3">
+                {negativeBehaviors.length > 0 ? (
+                  negativeBehaviors.map((beh) => (
+                    <div
+                      key={beh.id}
+                      className="p-3.5 rounded-xl border border-amber-200 bg-amber-50/40 space-y-1.5 text-xs"
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="font-bold text-amber-900">{beh.title}</span>
+                        <span className="text-[10px] text-slate-400 font-mono">{beh.date}</span>
+                      </div>
+                      <p className="text-slate-700 leading-relaxed text-[11px]">
+                        {beh.description}
+                      </p>
+                      {beh.actionTaken && (
+                        <div className="text-[10px] text-amber-800 bg-white p-1.5 rounded border border-amber-200">
+                          الإجراء المتخذ: {beh.actionTaken}
+                        </div>
+                      )}
+                    </div>
+                  ))
+                ) : (
+                  <div className="text-center py-10 text-slate-500 text-xs space-y-2">
+                    <CheckCircle2 className="w-10 h-10 text-emerald-500 mx-auto" />
+                    <div className="font-bold text-slate-800">السجل السلوكي ناصع ونموذجي!</div>
+                    <p className="text-[11px] text-slate-400 max-w-xs mx-auto">
+                      لا توجد أي مخالفات أو ملاحظات سلوكية سلبية مسجلة بحق الطالب.
+                    </p>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ======================================================== */}
+      {/* 3. التقييم الشامل والمهارات (Evaluations & Academic Reports) */}
+      {/* ======================================================== */}
+      {activeTab === "evaluations" && (
+        <div className="space-y-4">
+          <div className="bg-white rounded-2xl p-4 border border-slate-200 shadow-xs flex items-center justify-between flex-wrap gap-2">
+            <div className="flex items-center gap-2.5">
+              <Star className="w-5 h-5 text-amber-500" />
+              <div>
+                <h3 className="font-bold text-slate-900 text-sm">
+                  تقارير التقييم الدوري للمهارات الأكاديمية والشخصية
+                </h3>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  تقييمات دورية شاملة معتمدة من معلمي المواد ومربيي الصف
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {effectiveEvaluations.map((ev) => (
+              <div
+                key={ev.id}
+                className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden flex flex-col justify-between"
+              >
+                <div>
+                  {/* Evaluation Card Header */}
+                  <div className="p-4 bg-gradient-to-r from-slate-50 to-purple-50/30 border-b border-slate-100 flex items-center justify-between">
+                    <div>
+                      <h4 className="font-bold text-slate-900 text-xs">{ev.subjectName}</h4>
+                      <div className="text-[10.5px] text-slate-500 mt-0.5">
+                        المعلم: <strong className="text-slate-700">{ev.teacherName}</strong> • {ev.period}
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <span className="px-2.5 py-1 rounded-xl bg-purple-100 text-purple-900 font-black text-xs font-mono">
+                        {ev.overallScore}%
                       </span>
                     </div>
+                  </div>
 
-                    <p className="text-xs text-slate-700 leading-relaxed bg-white p-2.5 rounded-lg border border-slate-100">
-                      {msg.content}
-                    </p>
+                  {/* Skills Grid */}
+                  <div className="p-4 space-y-2.5 text-xs">
+                    <span className="font-bold text-slate-700 text-[11px] block">
+                      تقييم المعايير والمهارات الأساسية:
+                    </span>
 
-                    {/* Official Replies from School */}
-                    {msg.replies && msg.replies.length > 0 && (
-                      <div className="space-y-2 pr-4 border-r-2 border-purple-500">
-                        {msg.replies.map((rep) => (
-                          <div
-                            key={rep.id}
-                            className="p-2.5 bg-purple-50/80 rounded-lg border border-purple-200 text-xs space-y-1"
-                          >
-                            <div className="flex items-center justify-between font-bold text-purple-900 text-[11px]">
-                              <span>رد رسمي من: {rep.senderName}</span>
-                              <span className="text-[9.5px] text-purple-600 font-mono font-normal">
-                                {rep.timestamp}
-                              </span>
+                    <div className="space-y-2">
+                      {ev.skills.map((sk, idx) => (
+                        <div
+                          key={idx}
+                          className="p-2.5 bg-slate-50 rounded-xl border border-slate-100 flex items-center justify-between"
+                        >
+                          <span className="font-semibold text-slate-800 text-[11px]">
+                            {sk.skillName}
+                          </span>
+                          <div className="flex items-center gap-2">
+                            <div className="flex items-center text-amber-400">
+                              {Array.from({ length: 5 }).map((_, starIdx) => (
+                                <Star
+                                  key={starIdx}
+                                  className={`w-3 h-3 ${
+                                    starIdx < sk.stars ? "fill-amber-400 text-amber-400" : "text-slate-300"
+                                  }`}
+                                />
+                              ))}
                             </div>
-                            <p className="text-slate-800 leading-relaxed">{rep.content}</p>
+                            <span className="text-[10px] font-bold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+                              {sk.rating}
+                            </span>
                           </div>
-                        ))}
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* Teacher Feedback */}
+                    <div className="pt-2 border-t border-slate-100 space-y-1">
+                      <div className="text-[10.5px] font-bold text-slate-700">ملاحظات المعلم:</div>
+                      <p className="text-[11px] text-slate-600 leading-relaxed bg-blue-50/50 p-2.5 rounded-xl border border-blue-100">
+                        "{ev.teacherNotes}"
+                      </p>
+                    </div>
+
+                    {/* Recommendations */}
+                    {ev.recommendations && (
+                      <div className="space-y-1 pt-1">
+                        <div className="text-[10.5px] font-bold text-purple-900">توصيات المتابعة المنزلية:</div>
+                        <p className="text-[11px] text-purple-800 leading-relaxed bg-purple-50/50 p-2.5 rounded-xl border border-purple-100">
+                          {ev.recommendations}
+                        </p>
                       </div>
                     )}
-
-                    {/* Reply Box */}
-                    <div className="flex gap-2 pt-1">
-                      <input
-                        type="text"
-                        value={selectedChatMsgId === msg.id ? chatReplyText : ""}
-                        onChange={(e) => {
-                          setSelectedChatMsgId(msg.id);
-                          setChatReplyText(e.target.value);
-                        }}
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter") {
-                            handleSendChatReply(msg.id);
-                          }
-                        }}
-                        placeholder="اكتب رداً إضافياً على هذه المحادثة..."
-                        className="flex-1 bg-white border border-slate-200 rounded-md px-2.5 py-1 text-xs focus:border-purple-500 focus:outline-hidden"
-                      />
-                      <button
-                        onClick={() => handleSendChatReply(msg.id)}
-                        className="bg-purple-600 hover:bg-purple-700 text-white px-3 py-1 rounded-md text-xs font-bold"
-                      >
-                        إرسال
-                      </button>
-                    </div>
                   </div>
-                ))
-              )}
+                </div>
+
+                <div className="p-3 bg-slate-50 border-t border-slate-100 text-[10px] text-slate-400 flex items-center justify-between">
+                  <span>تاريخ الاعتماد: {ev.date}</span>
+                  <span className="font-bold text-emerald-700">معتمد في السجل الأكاديمي ✅</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* ======================================================== */}
+      {/* 4. الغياب والحضور (Absences & Attendance) */}
+      {/* ======================================================== */}
+      {activeTab === "attendance" && (
+        <div className="space-y-4">
+          {/* Attendance KPI Cards */}
+          <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
+            <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs">
+              <span className="text-slate-500 text-xs font-semibold">نسبة الانضباط والحضور</span>
+              <div className="text-2xl font-black text-emerald-700 mt-1">{attendanceRate}%</div>
+              <div className="text-[10px] text-emerald-600 font-bold mt-0.5">انضباط والتزام ممتاز</div>
+            </div>
+
+            <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs">
+              <span className="text-slate-500 text-xs font-semibold">أيام الغياب بعذر مقبول</span>
+              <div className="text-2xl font-black text-blue-700 mt-1">{excusedAbsent} يوم</div>
+              <div className="text-[10px] text-slate-500 mt-0.5">موثقة بأعذار رسمية</div>
+            </div>
+
+            <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs">
+              <span className="text-slate-500 text-xs font-semibold">أيام الغياب بدون عذر</span>
+              <div className="text-2xl font-black text-rose-700 mt-1">{unexcusedAbsent} يوم</div>
+              <div className="text-[10px] text-slate-500 mt-0.5">ضمن الحدود المسموحة</div>
+            </div>
+
+            <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs">
+              <span className="text-slate-500 text-xs font-semibold">مرات التأخر الصباحي</span>
+              <div className="text-2xl font-black text-amber-600 mt-1">{lateDays} مرات</div>
+              <div className="text-[10px] text-slate-500 mt-0.5">طابور الصباح والحصة الأولى</div>
+            </div>
+          </div>
+
+          {/* Action Bar for Submitting Excuse */}
+          <div className="bg-white rounded-2xl p-4 border border-slate-200 shadow-xs flex items-center justify-between flex-wrap gap-3">
+            <div>
+              <h4 className="font-bold text-slate-900 text-xs">سجل الحضور والغياب اليومي المفصل</h4>
+              <p className="text-[11px] text-slate-500 mt-0.5">
+                يمكن لولي الأمر تقديم عذر طبي أو مبرر رسمي لغياب الطالب مباشرة لإدارة المدرسة
+              </p>
+            </div>
+
+            <button
+              onClick={() => setShowExcuseModal(true)}
+              className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-sm transition-colors cursor-pointer"
+            >
+              <FileCheck className="w-4 h-4" />
+              <span>تقديم عذر غياب رسمي</span>
+            </button>
+          </div>
+
+          {excuseSuccessToast && (
+            <div className="p-3 bg-emerald-50 border border-emerald-300 text-emerald-800 rounded-xl text-xs font-bold flex items-center gap-2 animate-in fade-in">
+              <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+              تم إرسال عذر الغياب إلى إدارة المدرسة بنجاح، وستتم مراجعته وتحديث السجل.
+            </div>
+          )}
+
+          {/* Attendance Log Table */}
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full text-right text-xs">
+                <thead className="bg-slate-50 text-slate-700 font-bold border-b border-slate-200">
+                  <tr>
+                    <th className="p-3.5">التاريخ واليوم</th>
+                    <th className="p-3.5">حالة الحضور</th>
+                    <th className="p-3.5">وقت التسجيل</th>
+                    <th className="p-3.5">السبب / الملاحظات</th>
+                    <th className="p-3.5">المسجل والمشرف</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 text-slate-800">
+                  {studentAttendance.length > 0 ? (
+                    studentAttendance.map((att) => (
+                      <tr key={att.id} className="hover:bg-slate-50/70">
+                        <td className="p-3.5 font-bold font-mono text-slate-900">{att.date}</td>
+                        <td className="p-3.5">
+                          <span
+                            className={`px-2.5 py-1 rounded-lg text-[10px] font-bold ${
+                              att.status === "present"
+                                ? "bg-emerald-50 text-emerald-800 border border-emerald-200"
+                                : att.status === "absent"
+                                ? "bg-rose-50 text-rose-800 border border-rose-200"
+                                : att.status === "late"
+                                ? "bg-amber-50 text-amber-800 border border-amber-200"
+                                : "bg-blue-50 text-blue-800 border border-blue-200"
+                            }`}
+                          >
+                            {att.status === "present"
+                              ? "حاضر ✅"
+                              : att.status === "absent"
+                              ? "غائب بدون عذر ❌"
+                              : att.status === "late"
+                              ? `متأخر (${att.lateMinutes || 15} دقيقة) ⏱️`
+                              : "غائب بعذر مقبول 📋"}
+                          </span>
+                        </td>
+                        <td className="p-3.5 font-mono text-slate-500">{att.time || "07:20 ص"}</td>
+                        <td className="p-3.5 text-slate-600">{att.reason || "حضور منتظم في الوقت المحدد"}</td>
+                        <td className="p-3.5 text-slate-600">{att.recordedBy || "مشرف الحضور"}</td>
+                      </tr>
+                    ))
+                  ) : (
+                    // Default fallback log
+                    <>
+                      <tr className="hover:bg-slate-50/70">
+                        <td className="p-3.5 font-bold font-mono text-slate-900">2026-02-28 (الخميس)</td>
+                        <td className="p-3.5">
+                          <span className="px-2.5 py-1 rounded-lg text-[10px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200">
+                            حاضر ✅
+                          </span>
+                        </td>
+                        <td className="p-3.5 font-mono text-slate-500">07:20 ص</td>
+                        <td className="p-3.5 text-slate-600">حضور مبكر ومنضبط</td>
+                        <td className="p-3.5 text-slate-600">أ. فاطمة الزهراء الشامي</td>
+                      </tr>
+                      <tr className="hover:bg-slate-50/70">
+                        <td className="p-3.5 font-bold font-mono text-slate-900">2026-02-27 (الأربعاء)</td>
+                        <td className="p-3.5">
+                          <span className="px-2.5 py-1 rounded-lg text-[10px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200">
+                            حاضر ✅
+                          </span>
+                        </td>
+                        <td className="p-3.5 font-mono text-slate-500">07:25 ص</td>
+                        <td className="p-3.5 text-slate-600">حضور منتظم</td>
+                        <td className="p-3.5 text-slate-600">أ. فاطمة الزهراء الشامي</td>
+                      </tr>
+                    </>
+                  )}
+                </tbody>
+              </table>
             </div>
           </div>
         </div>
       )}
 
-      {/* Online Tuition Payment Modal */}
+      {/* ======================================================== */}
+      {/* 5. الأقساط والرسوم (Finance) */}
+      {/* ======================================================== */}
+      {activeTab === "finance" && (
+        <div className="space-y-4">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs">
+              <span className="text-slate-500 text-xs font-semibold">إجمالي الرسوم المعتمدة</span>
+              <div className="text-xl font-black text-slate-900 mt-1 font-mono">
+                {(currentStudent.finance?.netAmount || 18200).toLocaleString()} ر.س
+              </div>
+              <div className="text-[10px] text-slate-500 mt-0.5">شامل الدراسة والكتب والنقل</div>
+            </div>
+            <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs">
+              <span className="text-slate-500 text-xs font-semibold">المسدد حتى الآن</span>
+              <div className="text-xl font-black text-emerald-700 mt-1 font-mono">
+                {(currentStudent.finance?.paidAmount || 12000).toLocaleString()} ر.س
+              </div>
+              <div className="text-[10px] text-emerald-600 font-bold mt-0.5">دفعات مؤكدة</div>
+            </div>
+            <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs">
+              <span className="text-slate-500 text-xs font-semibold">المتبقي للاستحقاق</span>
+              <div className="text-xl font-black text-purple-800 mt-1 font-mono">
+                {(currentStudent.finance?.balance || 6200).toLocaleString()} ر.س
+              </div>
+              <button
+                onClick={() => setShowPayModal(true)}
+                className="mt-2 w-full py-1.5 bg-purple-700 hover:bg-purple-800 text-white rounded-lg text-xs font-bold cursor-pointer transition-colors"
+              >
+                سداد القسط إلكترونياً
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ======================================================== */}
+      {/* 6. تتبع الحافلة GPS */}
+      {/* ======================================================== */}
+      {activeTab === "bus_gps" && (
+        <div className="bg-white rounded-2xl p-5 border border-slate-200 shadow-xs space-y-3">
+          <div className="flex items-center gap-2">
+            <Bus className="w-5 h-5 text-purple-700" />
+            <h3 className="font-bold text-slate-900 text-sm">
+              بيانات النقل المدرسي ومسار الحافلة للطالب
+            </h3>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+            <div className="p-3 bg-slate-50 rounded-xl">
+              <span className="text-slate-500 block text-[10px]">مسار الحافلة:</span>
+              <strong className="text-slate-800">{currentStudent.transportation?.busRouteName || "باص 01 - مسار النرجس والياسمين"}</strong>
+            </div>
+            <div className="p-3 bg-slate-50 rounded-xl">
+              <span className="text-slate-500 block text-[10px]">نقطة الصعود والنزول:</span>
+              <strong className="text-slate-800">{currentStudent.transportation?.pickupStopName || "محطة حي النرجس - بوابة 3"}</strong>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ======================================================== */}
+      {/* 7. التواصل مع المدرسة والمعلمين */}
+      {/* ======================================================== */}
+      {activeTab === "feedback" && (
+        <div className="bg-white rounded-2xl p-5 border border-slate-200 shadow-xs space-y-4">
+          <div className="flex items-center gap-2">
+            <MessageSquare className="w-5 h-5 text-purple-700" />
+            <h3 className="font-bold text-slate-900 text-sm">إرسال استفسار أو ملاحظة لإدارة المدرسة والمعلمين</h3>
+          </div>
+
+          {feedbackSuccessToast && (
+            <div className="p-3 bg-emerald-50 border border-emerald-300 text-emerald-800 rounded-xl text-xs font-bold flex items-center gap-2 animate-in fade-in">
+              <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+              تم إرسال رسالتكم بنجاح إلى المدرسة، وسيتم الرد عليكم قريباً.
+            </div>
+          )}
+
+          <form onSubmit={handleSendFeedback} className="space-y-3 text-xs max-w-xl">
+            <div>
+              <label className="block text-slate-700 font-bold mb-1">الجهة المستهدفة:</label>
+              <select
+                value={feedbackRecipient}
+                onChange={(e) => setFeedbackRecipient(e.target.value)}
+                className="w-full p-2.5 rounded-xl border border-slate-200 font-medium"
+              >
+                <option value="admin">إدارة المدرسة وشؤون الطلاب</option>
+                <option value="teacher">معلم الفصل والمقررات</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-slate-700 font-bold mb-1">عنوان الموضوع:</label>
+              <input
+                type="text"
+                required
+                placeholder="مثال: استفسار حول جدول الاختبارات أو الأنشطة"
+                value={feedbackSubject}
+                onChange={(e) => setFeedbackSubject(e.target.value)}
+                className="w-full p-2.5 rounded-xl border border-slate-200"
+              />
+            </div>
+
+            <div>
+              <label className="block text-slate-700 font-bold mb-1">نص الرسالة / الملاحظة:</label>
+              <textarea
+                required
+                rows={3}
+                placeholder="اكتب ملاحظتك هنا..."
+                value={feedbackContent}
+                onChange={(e) => setFeedbackContent(e.target.value)}
+                className="w-full p-2.5 rounded-xl border border-slate-200"
+              />
+            </div>
+
+            <button
+              type="submit"
+              className="px-5 py-2.5 bg-purple-700 hover:bg-purple-800 text-white rounded-xl font-bold cursor-pointer transition-colors"
+            >
+              إرسال الرسالة
+            </button>
+          </form>
+        </div>
+      )}
+
+      {/* Excuse Modal */}
+      {showExcuseModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4 overflow-y-auto">
+          <div className="bg-white rounded-3xl shadow-2xl border border-slate-200 w-full max-w-md p-6 space-y-4 text-xs animate-in fade-in zoom-in-95 duration-150">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <h3 className="font-bold text-slate-900 text-sm">تقديم عذر غياب رسمي للطالب</h3>
+              <button
+                onClick={() => setShowExcuseModal(false)}
+                className="text-slate-400 hover:text-slate-600 p-1"
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleSendExcuse} className="space-y-3">
+              <div>
+                <label className="block text-slate-700 font-bold mb-1">تاريخ الغياب:</label>
+                <input
+                  type="date"
+                  required
+                  value={excuseDate}
+                  onChange={(e) => setExcuseDate(e.target.value)}
+                  className="w-full p-2.5 rounded-xl border border-slate-200 font-bold"
+                />
+              </div>
+
+              <div>
+                <label className="block text-slate-700 font-bold mb-1">سبب الغياب والتوضيح:</label>
+                <textarea
+                  required
+                  rows={3}
+                  placeholder="مثال: وعكة صحية ومراجعة الطبيب، أو ظرف عائلي طارئ..."
+                  value={excuseReason}
+                  onChange={(e) => setExcuseReason(e.target.value)}
+                  className="w-full p-2.5 rounded-xl border border-slate-200"
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setShowExcuseModal(false)}
+                  className="px-4 py-2 rounded-xl text-slate-600 hover:bg-slate-100 font-bold cursor-pointer"
+                >
+                  إلغاء
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold cursor-pointer transition-colors"
+                >
+                  إرسال العذر للمدرسة
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Online Pay Modal */}
       {showPayModal && (
-        <div className="fixed inset-0 bg-slate-900/60 z-50 flex items-center justify-center p-4 backdrop-blur-xs">
-          <div className="bg-white rounded-xl max-w-md w-full p-4 border border-slate-200 shadow-xl space-y-3 animate-in zoom-in-95">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-2">
-              <h3 className="font-bold text-sm text-slate-900 flex items-center gap-2">
-                <CreditCard className="w-4 h-4 text-purple-600" />
-                سداد الرسوم الدراسية إلكترونياً (مدى / Visa)
-              </h3>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4 overflow-y-auto">
+          <div className="bg-white rounded-3xl shadow-2xl border border-slate-200 w-full max-w-md p-6 space-y-4 text-xs animate-in fade-in zoom-in-95 duration-150">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <h3 className="font-bold text-slate-900 text-sm">سداد الرسوم المدرسية إلكترونياً</h3>
               <button
                 onClick={() => setShowPayModal(false)}
-                className="text-slate-400 hover:text-slate-600 text-sm"
+                className="text-slate-400 hover:text-slate-600 p-1"
               >
                 ✕
               </button>
             </div>
 
             {onlinePaySuccess ? (
-              <div className="p-4 bg-emerald-50 border border-emerald-300 text-emerald-800 rounded-lg text-center space-y-2">
-                <CheckCircle2 className="w-10 h-10 text-emerald-600 mx-auto" />
-                <h4 className="font-bold text-sm">تم السداد الإلكتروني بنجاح!</h4>
-                <p className="text-xs text-emerald-700">
-                  تم إصدار سند القبض الإلكتروني وتحديث رصيد الطالب فورياً.
+              <div className="p-4 bg-emerald-50 text-emerald-800 rounded-2xl text-center space-y-2 border border-emerald-200">
+                <CheckCircle2 className="w-8 h-8 text-emerald-600 mx-auto" />
+                <div className="font-bold text-sm">تم السداد الإلكتروني بنجاح!</div>
+                <p className="text-[11px] text-slate-600">
+                  تم إصدار إيصال السداد الإلكتروني المعتمد وتحديث الرصيد المالي للطالب.
                 </p>
+                <button
+                  onClick={() => {
+                    setShowPayModal(false);
+                    setOnlinePaySuccess(false);
+                  }}
+                  className="px-4 py-1.5 bg-emerald-600 text-white rounded-xl font-bold mt-2 cursor-pointer"
+                >
+                  إغلاق
+                </button>
               </div>
             ) : (
-              <form onSubmit={handleExecuteOnlinePayment} className="space-y-3">
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  recordPayment({
+                    studentId: currentStudent.id,
+                    studentName: currentStudent.fullName,
+                    gradeName: currentStudent.gradeName,
+                    amount: payAmountInput,
+                    paymentDate: "2026-02-28",
+                    paymentMethod: "card",
+                    installmentName: "سداد عبر بوابة ولي الأمر الإلكترونية",
+                    receivedBy: "بوابة الدفع الإلكتروني المباشر",
+                    status: "completed",
+                  });
+                  setOnlinePaySuccess(true);
+                }}
+                className="space-y-3"
+              >
                 <div>
-                  <label className="text-[11px] font-bold text-slate-700 block mb-0.5">المبلغ المراد سداده (ر.س):</label>
+                  <label className="block text-slate-700 font-bold mb-1">المبلغ المراد سداده (ر.س):</label>
                   <input
                     type="number"
-                    min="100"
-                    max="50000"
+                    required
                     value={payAmountInput}
                     onChange={(e) => setPayAmountInput(Number(e.target.value))}
-                    required
-                    className="w-full bg-slate-50 border border-slate-200 rounded-md p-2 text-sm font-bold text-purple-700 focus:border-purple-500"
+                    className="w-full p-2.5 rounded-xl border border-slate-200 font-mono font-bold text-sm"
                   />
                 </div>
 
                 <div>
-                  <label className="text-[11px] font-bold text-slate-700 block mb-0.5">رقم بطاقة مدى / الائتمان:</label>
+                  <label className="block text-slate-700 font-bold mb-1">رقم البطاقة الائتمانية / مدى:</label>
                   <input
                     type="text"
-                    value={payCardNumber}
-                    onChange={(e) => setPayCardNumber(e.target.value)}
                     required
-                    className="w-full bg-slate-50 border border-slate-200 rounded-md p-2 text-xs font-mono font-bold"
+                    defaultValue="5888 1234 5678 9012"
+                    className="w-full p-2.5 rounded-xl border border-slate-200 font-mono text-xs"
                   />
                 </div>
 
                 <div className="grid grid-cols-2 gap-2">
                   <div>
-                    <label className="text-[11px] font-bold text-slate-700 block mb-0.5">تاريخ الانتهاء:</label>
+                    <label className="block text-slate-700 font-bold mb-1">تاريخ الانتهاء:</label>
                     <input
                       type="text"
-                      value={payCardExpiry}
-                      onChange={(e) => setPayCardExpiry(e.target.value)}
                       required
-                      className="w-full bg-slate-50 border border-slate-200 rounded-md p-2 text-xs font-mono"
+                      defaultValue="08/28"
+                      className="w-full p-2.5 rounded-xl border border-slate-200 font-mono text-xs text-center"
                     />
                   </div>
                   <div>
-                    <label className="text-[11px] font-bold text-slate-700 block mb-0.5">رمز الأمان (CVV):</label>
+                    <label className="block text-slate-700 font-bold mb-1">رمز الأمان (CVV):</label>
                     <input
                       type="password"
-                      value={payCardCvv}
-                      onChange={(e) => setPayCardCvv(e.target.value)}
                       required
-                      className="w-full bg-slate-50 border border-slate-200 rounded-md p-2 text-xs font-mono"
+                      defaultValue="789"
+                      maxLength={4}
+                      className="w-full p-2.5 rounded-xl border border-slate-200 font-mono text-xs text-center"
                     />
                   </div>
                 </div>
 
-                <div className="p-2.5 bg-slate-50 rounded-lg text-[10.5px] text-slate-500 flex items-center gap-2">
-                  <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0" />
-                  <span>عملية دفع مشفرة وآمنة متوافقة مع معايير البنك المركزي السعودي (ساما).</span>
-                </div>
-
-                <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
-                  <button
-                    type="button"
-                    onClick={() => setShowPayModal(false)}
-                    className="px-3 py-1.5 text-xs text-slate-600 hover:bg-slate-100 rounded-md font-semibold"
-                  >
-                    إلغاء
-                  </button>
-                  <button
-                    type="submit"
-                    className="px-4 py-1.5 text-xs bg-purple-600 hover:bg-purple-700 text-white rounded-md font-bold shadow-xs flex items-center gap-1"
-                  >
-                    <CreditCard className="w-3.5 h-3.5" />
-                    <span>تأكيد ودفع {payAmountInput.toLocaleString()} ر.س</span>
-                  </button>
-                </div>
+                <button
+                  type="submit"
+                  className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold cursor-pointer transition-colors shadow-sm"
+                >
+                  تأكيد السداد الآمن (مدى / فيزا)
+                </button>
               </form>
             )}
           </div>

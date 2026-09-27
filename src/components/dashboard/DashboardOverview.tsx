@@ -291,11 +291,11 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({ setActiveT
         >
           <div className="text-right">
             <div className="text-sm font-black text-slate-900 group-hover:text-sky-700 transition-colors flex items-center gap-1.5">
-              <span>{schoolInfo.schoolName || "متوسطة الرافدين للبنين"}</span>
+              <span>{schoolInfo.schoolName || "المدرسة النموذجية الأهلية"}</span>
               <Edit3 className="w-3 h-3 text-slate-400 group-hover:text-sky-600" />
             </div>
             <div className="text-[11px] text-slate-500 font-medium">
-              {schoolInfo.directorate || "المديرية العامة لتربية بغداد"}
+              {schoolInfo.directorate || "إدارة التعليم الأهلي والخاص"}
             </div>
           </div>
 

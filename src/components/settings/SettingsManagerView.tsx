@@ -300,7 +300,7 @@ export const SettingsManagerView: React.FC = () => {
               />
             </div>
             <div>
-              <label className="block font-bold text-slate-700 mb-1">الوزارة والدولة</label>
+              <label className="block font-bold text-slate-700 mb-1">الوزارة أو الهيئة المشرفة</label>
               <input
                 type="text"
                 required
@@ -349,12 +349,70 @@ export const SettingsManagerView: React.FC = () => {
               <label className="block font-bold text-slate-700 mb-1">رابط الشعار المخصص (Logo URL)</label>
               <input
                 type="url"
-                placeholder="اتركه فارغاً لاعتماد شعار النسر وشعار المدرسة التلقائي"
+                placeholder="https://example.com/logo.png أو استخدم رفع الملف المباشر أدناه"
                 value={schoolSettings.logoUrl || ""}
                 onChange={(e) => setSchoolSettings({ ...schoolSettings, logoUrl: e.target.value })}
                 className="w-full p-2 border border-slate-300 rounded-lg font-mono text-left"
                 dir="ltr"
               />
+            </div>
+
+            {/* Direct Logo Upload Box */}
+            <div className="sm:col-span-2 p-3 bg-slate-50 border border-slate-200 rounded-xl flex items-center justify-between gap-3 flex-wrap">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 rounded-xl bg-white border border-slate-300 p-1 flex items-center justify-center overflow-hidden shrink-0 shadow-xs">
+                  {schoolSettings.logoUrl ? (
+                    <img
+                      src={schoolSettings.logoUrl}
+                      alt="لوغو المدرسة"
+                      className="w-full h-full object-contain"
+                    />
+                  ) : (
+                    <Building2 className="w-6 h-6 text-sky-700" />
+                  )}
+                </div>
+                <div>
+                  <div className="font-bold text-slate-800">شعار / لوغو المدرسة</div>
+                  <div className="text-[11px] text-slate-500">
+                    {schoolSettings.logoUrl ? "تم تخصيص لوغو خاص للمدرسة بنجاح" : "يمكنك رفع صورة شعار المدرسة (PNG, JPG, SVG)"}
+                  </div>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <input
+                  type="file"
+                  id="settings-logo-upload"
+                  accept="image/*"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (!file) return;
+                    const reader = new FileReader();
+                    reader.onload = (ev) => {
+                      const res = ev.target?.result as string;
+                      if (res) setSchoolSettings({ ...schoolSettings, logoUrl: res });
+                    };
+                    reader.readAsDataURL(file);
+                  }}
+                  className="hidden"
+                />
+                <button
+                  type="button"
+                  onClick={() => document.getElementById("settings-logo-upload")?.click()}
+                  className="px-3 py-1.5 bg-sky-700 hover:bg-sky-800 text-white rounded-lg font-bold flex items-center gap-1 cursor-pointer transition-colors"
+                >
+                  <Upload className="w-3.5 h-3.5" />
+                  <span>رفع صورة اللوغو</span>
+                </button>
+                {schoolSettings.logoUrl && (
+                  <button
+                    type="button"
+                    onClick={() => setSchoolSettings({ ...schoolSettings, logoUrl: "" })}
+                    className="px-3 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 rounded-lg font-bold border border-rose-200 cursor-pointer transition-colors"
+                  >
+                    حذف اللوغو
+                  </button>
+                )}
+              </div>
             </div>
           </div>
         </form>

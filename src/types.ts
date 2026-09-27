@@ -250,6 +250,7 @@ export interface StaffMember {
   specialization: string;
   teachingSubjects: string[]; // Subject IDs or Names
   assignedSections: string[]; // Section IDs or Names
+  assignedGrades?: string[]; // Grade IDs or Names
   salary: number;
   status: 'active' | 'on_leave' | 'resigned';
   photo: string;
@@ -257,10 +258,33 @@ export interface StaffMember {
   emergencyPhone: string;
 }
 
+export interface EvaluationRecord {
+  id: string;
+  studentId: string;
+  studentName: string;
+  subjectName: string;
+  teacherName: string;
+  period: string;
+  date: string;
+  overallRating: 'excellent' | 'very_good' | 'good' | 'needs_improvement';
+  overallScore: number;
+  skills: {
+    skillName: string;
+    rating: string;
+    stars: number;
+  }[];
+  teacherNotes: string;
+  recommendations: string;
+}
+
+export type AssessmentCategory = 'monthly' | 'quiz' | 'exam';
+
 export interface Exam {
   id: string;
   title: string;
-  type: 'midterm' | 'final' | 'monthly' | 'quiz' | 'coursework';
+  type: 'midterm' | 'final' | 'monthly' | 'quiz' | 'coursework' | 'exam';
+  category?: AssessmentCategory; // 'monthly' = تقييم شهري | 'quiz' = مذاكرة | 'exam' = امتحان
+  assessmentCategoryName?: string; // "تقييم شهري" | "مذاكرة" | "امتحان"
   subjectId: string;
   subjectName: string;
   gradeId: string;
@@ -270,8 +294,16 @@ export interface Exam {
   durationMinutes: number;
   maxMarks: number;
   passMarks: number;
+  maxScore?: number; // alias for maxMarks
+  passingScore?: number; // alias for passMarks
   weighting: number; // e.g. 20% or 40%
-  term: 'الفصل الأول' | 'الفصل الثاني' | 'الفصل الثالث';
+  term: 'الفصل الأول' | 'الفصل الثاني' | 'الفصل الثالث' | string;
+  startTime?: string;
+  endTime?: string;
+  room?: string;
+  monthPeriod?: string; // e.g. "الشهر الأول", "الشهر الثاني"
+  quizNumber?: number; // e.g. 1, 2 for مذاكرة 1, مذاكرة 2
+  status?: 'scheduled' | 'completed' | 'graded';
 }
 
 export interface GradeRecord {
@@ -284,14 +316,17 @@ export interface GradeRecord {
   sectionId: string;
   examId?: string;
   examTitle: string;
-  examType: string;
+  examType: string; // 'تقييم شهري' | 'مذاكرة' | 'امتحان' | 'نصفي' | 'نهائي'
+  category?: AssessmentCategory; // 'monthly' | 'quiz' | 'exam'
   score: number;
   maxScore: number;
   percentage: number;
   letterGrade: string;
+  isPassed?: boolean;
   notes?: string;
   term: string;
   date: string;
+  recordedDate?: string;
 }
 
 export interface Assignment {
@@ -469,11 +504,11 @@ export interface AuditLog {
 
 export interface SchoolInfo {
   schoolName: string;
-  directorate: string; // e.g. "المديرية العامة لتربية بغداد"
-  ministry: string; // e.g. "جمهورية العراق - وزارة التربية"
-  country: string; // e.g. "جمهورية العراق"
-  location: string; // e.g. "وزارة التربية - بغداد"
-  logoUrl: string; // custom logo url or svg icon
+  directorate: string; // e.g. "إدارة التعليم الأهلي والخاص"
+  ministry: string; // e.g. "وزارة التربية والتعليم"
+  country: string; // e.g. "المملكة العربية السعودية"
+  location: string; // e.g. "الإدارة العامة للتعليم"
+  logoUrl: string; // custom logo url or base64 data image
   principalName: string;
   phone: string;
   email: string;

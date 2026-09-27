@@ -23,6 +23,10 @@ import {
   Award,
   Sparkles,
   Bookmark,
+  Link as LinkIcon,
+  Share2,
+  Copy,
+  Check,
 } from "lucide-react";
 
 export const StudentsManagerView: React.FC = () => {
@@ -38,7 +42,10 @@ export const StudentsManagerView: React.FC = () => {
     recordPayment,
     importStudentsBatch,
     resetStudentsToOfficialData,
+    generateParentDirectLink,
   } = useSchool();
+
+  const [copiedStudentLink, setCopiedStudentLink] = useState<string | null>(null);
 
   const [searchQuery, setSearchQuery] = useState("");
   const [filterGrade, setFilterGrade] = useState<string>("all");
@@ -145,15 +152,17 @@ export const StudentsManagerView: React.FC = () => {
 
   const filteredStudents = students.filter((s) => {
     const matchQuery =
-      s.fullName.includes(searchQuery) ||
-      s.studentNumber.includes(searchQuery) ||
-      s.nationalId.includes(searchQuery);
+      (s.fullName || "").includes(searchQuery) ||
+      (s.studentNumber || "").includes(searchQuery) ||
+      (s.nationalId || "").includes(searchQuery);
 
     const matchGrade = filterGrade === "all" || s.gradeId === filterGrade;
     const matchSection = filterSection === "all" || s.sectionId === filterSection;
     const matchBus =
       filterBus === "all" ||
-      (filterBus === "uses_bus" ? s.transportation.usesBus : !s.transportation.usesBus);
+      (filterBus === "uses_bus"
+        ? !!(s.transportation?.usesBus || s.hasTransportation)
+        : !(s.transportation?.usesBus || s.hasTransportation));
 
     return matchQuery && matchGrade && matchSection && matchBus;
   });
@@ -222,24 +231,68 @@ export const StudentsManagerView: React.FC = () => {
   const handleOpenEdit = (student: Student) => {
     setEditingStudentId(student.id);
     setStudentForm({
-      fullName: student.fullName,
-      nationalId: student.nationalId,
-      birthDate: student.birthDate,
-      birthPlace: student.birthPlace,
-      gender: student.gender,
-      nationality: student.nationality,
-      photo: student.photo,
-      address: student.address,
-      bloodType: student.bloodType,
+      fullName: student.fullName || "",
+      nationalId: student.nationalId || "",
+      birthDate: student.birthDate || "2016-04-10",
+      birthPlace: student.birthPlace || "الرياض",
+      gender: student.gender || "male",
+      nationality: student.nationality || "سعودي",
+      photo: student.photo || "https://images.unsplash.com/photo-1544717305-2782549b5136?w=150&h=150&fit=crop",
+      address: student.address || "حي الياسمين، الرياض",
+      bloodType: student.bloodType || "A+",
       gradeId: student.gradeId,
       sectionId: student.sectionId,
-      enrollmentDate: student.enrollmentDate,
-      academicStatus: student.academicStatus,
+      enrollmentDate: student.enrollmentDate || new Date().toISOString().split("T")[0],
+      academicStatus: student.academicStatus || "active",
       previousSchool: student.previousSchool || "",
-      healthRecord: { ...student.healthRecord },
-      familyInfo: { ...student.familyInfo },
-      transportation: { ...student.transportation },
-      finance: { ...student.finance },
+      healthRecord: student.healthRecord
+        ? { ...student.healthRecord }
+        : {
+            bloodType: student.bloodType || "A+",
+            allergies: [],
+            chronicConditions: [],
+            emergencyMedicalNotes: "سليم",
+            healthInsuranceNo: "INS-2026-MED",
+          },
+      familyInfo: student.familyInfo
+        ? { ...student.familyInfo }
+        : {
+            fatherName: student.guardianName1 || "",
+            fatherJob: student.guardianJob1 || "موظف",
+            fatherPhone: student.guardianPhone1 || "05",
+            fatherEmail: "",
+            motherName: "",
+            motherJob: "ربة منزل",
+            motherPhone: "05",
+            motherEmail: "",
+            guardianRelation: student.guardianRelation1 || "الأب",
+            emergencyContactName: student.contactPerson2 || "",
+            emergencyContactPhone: student.contactPhone2 || "05",
+            emergencyRelation: student.contactRelation2 || "القرابة",
+            pickupAuthorizedPersons: [],
+          },
+      transportation: student.transportation
+        ? { ...student.transportation }
+        : {
+            usesBus: !!student.hasTransportation,
+            busTripType: "two_way",
+            pickupStopName: "",
+            dropoffStopName: "",
+          },
+      finance: student.finance
+        ? { ...student.finance }
+        : {
+            totalTuition: student.totalPayments || 18000,
+            busFee: student.transportationFee || 0,
+            booksFee: student.booksFeeVal || 1000,
+            discountType: "لا يوجد",
+            discountAmount: 0,
+            netAmount: student.totalPayments || 19000,
+            paidAmount: (student.firstPayment || 0) + (student.secondPayment || 0),
+            balance: student.remainingBalance ?? 19000,
+            paymentPlan: "two_installments",
+            status: (student.remainingBalance ?? 19000) === 0 ? "paid" : "partial",
+          },
     });
     setShowAddModal(true);
   };
@@ -249,9 +302,14 @@ export const StudentsManagerView: React.FC = () => {
     const g = grades.find((gr) => gr.id === studentForm.gradeId);
     const s = sections.find((sc) => sc.id === studentForm.sectionId);
 
-    const net = studentForm.finance.totalTuition + studentForm.finance.busFee + studentForm.finance.booksFee - studentForm.finance.discountAmount;
-    const balance = Math.max(0, net - studentForm.finance.paidAmount);
-    const status = balance === 0 ? "paid" : studentForm.finance.paidAmount > 0 ? "partial" : "pending";
+    const net =
+      (studentForm.finance?.totalTuition || 0) +
+      (studentForm.finance?.busFee || 0) +
+      (studentForm.finance?.booksFee || 0) -
+      (studentForm.finance?.discountAmount || 0);
+    const balance = Math.max(0, net - (studentForm.finance?.paidAmount || 0));
+    const status =
+      balance === 0 ? "paid" : (studentForm.finance?.paidAmount || 0) > 0 ? "partial" : "pending";
 
     if (editingStudentId) {
       updateStudent(editingStudentId, {
@@ -448,94 +506,125 @@ export const StudentsManagerView: React.FC = () => {
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100 text-slate-800">
-            {filteredStudents.map((student) => (
-              <tr key={student.id} className="hover:bg-slate-50/50">
-                <td className="p-3.5 font-bold flex items-center gap-2.5">
-                  <img
-                    src={student.photo}
-                    alt={student.fullName}
-                    className="w-9 h-9 rounded-xl object-cover ring-1 ring-slate-200"
-                  />
-                  <div>
-                    <div className="text-slate-900">{student.fullName}</div>
-                    <div className="text-[10px] text-slate-400 font-normal">
-                      {student.gender === "male" ? "طالب" : "طالبة"} • {student.nationality}
+            {filteredStudents.map((student) => {
+              const finStatus =
+                student.finance?.status || (student.remainingBalance === 0 ? "paid" : "partial");
+              const finBalance =
+                student.finance?.balance ?? student.remainingBalance ?? 0;
+
+              return (
+                <tr key={student.id} className="hover:bg-slate-50/50">
+                  <td className="p-3.5 font-bold flex items-center gap-2.5">
+                    <img
+                      src={
+                        student.photo ||
+                        "https://images.unsplash.com/photo-1544717305-2782549b5136?w=200&h=200&fit=crop&crop=faces&q=80"
+                      }
+                      alt={student.fullName}
+                      className="w-9 h-9 rounded-xl object-cover ring-1 ring-slate-200"
+                    />
+                    <div>
+                      <div className="text-slate-900">{student.fullName}</div>
+                      <div className="text-[10px] text-slate-400 font-normal">
+                        {student.gender === "female" ? "طالبة" : "طالب"} •{" "}
+                        {student.nationality || "سوري"}
+                      </div>
                     </div>
-                  </div>
-                </td>
-                <td className="p-3.5 font-mono font-semibold text-slate-700">
-                  {student.studentNumber}
-                </td>
-                <td className="p-3.5">
-                  <div className="font-bold text-slate-900">{student.gradeName}</div>
-                  <div className="text-[10px] text-slate-500">{student.sectionName}</div>
-                </td>
-                <td className="p-3.5">
-                  <div className="font-bold text-slate-900">{student.familyInfo?.fatherName || "—"}</div>
-                  <div className="text-[10px] font-mono text-slate-500">{student.familyInfo?.fatherPhone || "—"}</div>
-                </td>
-                <td className="p-3.5">
-                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                    فصيلة الدم {student.healthRecord?.bloodType || student.bloodType || "—"}
-                  </span>
-                </td>
-                <td className="p-3.5">
-                  {student.transportation?.usesBus ? (
-                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200 flex items-center gap-1 w-fit">
-                      <Bus className="w-3 h-3" />
-                      مشترك بالباص
+                  </td>
+                  <td className="p-3.5 font-mono font-semibold text-slate-700">
+                    {student.studentNumber}
+                  </td>
+                  <td className="p-3.5">
+                    <div className="font-bold text-slate-900">{student.gradeName}</div>
+                    <div className="text-[10px] text-slate-500">{student.sectionName}</div>
+                  </td>
+                  <td className="p-3.5">
+                    <div className="font-bold text-slate-900">
+                      {student.familyInfo?.fatherName || student.guardianName1 || "—"}
+                    </div>
+                    <div className="text-[10px] font-mono text-slate-500">
+                      {student.familyInfo?.fatherPhone || student.guardianPhone1 || "—"}
+                    </div>
+                  </td>
+                  <td className="p-3.5">
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                      فصيلة الدم {student.healthRecord?.bloodType || student.bloodType || "—"}
                     </span>
-                  ) : (
-                    <span className="text-[10px] text-slate-400 font-medium">نقل خاص</span>
-                  )}
-                </td>
-                <td className="p-3.5">
-                  <span
-                    className={`px-2 py-0.5 rounded-full text-[10px] font-bold border ${
-                      student.finance.status === "paid"
-                        ? "bg-emerald-50 text-emerald-700 border-emerald-200"
-                        : student.finance.status === "partial"
-                        ? "bg-blue-50 text-blue-700 border-blue-200"
-                        : "bg-rose-50 text-rose-700 border-rose-200"
-                    }`}
-                  >
-                    {student.finance.status === "paid"
-                      ? "مسدد بالكامل"
-                      : student.finance.status === "partial"
-                      ? `مسدد جزئياً (متبقي: ${student.finance.balance} ر.س)`
-                      : `مستحق السداد (${student.finance.balance} ر.س)`}
-                  </span>
-                </td>
-                <td className="p-3.5">
-                  <div className="flex items-center gap-1.5">
-                    <button
-                      onClick={() => {
-                        setSelectedStudent(student);
-                        setProfileActiveTab("personal");
-                      }}
-                      className="p-1.5 text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
-                      title="عرض الملف الشامل"
+                  </td>
+                  <td className="p-3.5">
+                    {student.transportation?.usesBus || student.hasTransportation ? (
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200 flex items-center gap-1 w-fit">
+                        <Bus className="w-3 h-3" />
+                        مشترك بالباص
+                      </span>
+                    ) : (
+                      <span className="text-[10px] text-slate-400 font-medium">نقل خاص</span>
+                    )}
+                  </td>
+                  <td className="p-3.5">
+                    <span
+                      className={`px-2 py-0.5 rounded-full text-[10px] font-bold border ${
+                        finStatus === "paid"
+                          ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                          : finStatus === "partial"
+                          ? "bg-blue-50 text-blue-700 border-blue-200"
+                          : "bg-rose-50 text-rose-700 border-rose-200"
+                      }`}
                     >
-                      <Eye className="w-4 h-4" />
-                    </button>
-                    <button
-                      onClick={() => handleOpenEdit(student)}
-                      className="p-1.5 text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"
-                      title="تعديل"
-                    >
-                      <Edit2 className="w-4 h-4" />
-                    </button>
-                    <button
-                      onClick={() => deleteStudent(student.id)}
-                      className="p-1.5 text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
-                      title="أرشفة / حذف"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  </div>
-                </td>
-              </tr>
-            ))}
+                      {finStatus === "paid"
+                        ? "مسدد بالكامل"
+                        : finStatus === "partial"
+                        ? `مسدد جزئياً (متبقي: ${finBalance} ر.س)`
+                        : `مستحق السداد (${finBalance} ر.س)`}
+                    </span>
+                  </td>
+                  <td className="p-3.5">
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        onClick={() => {
+                          const link = generateParentDirectLink(student.studentNumber);
+                          navigator.clipboard.writeText(link);
+                          setCopiedStudentLink(student.id);
+                          setTimeout(() => setCopiedStudentLink(null), 2500);
+                        }}
+                        className="p-1.5 text-purple-600 hover:bg-purple-50 rounded-lg transition-colors cursor-pointer"
+                        title="نسخ رابط ولي الأمر المباشر"
+                      >
+                        {copiedStudentLink === student.id ? (
+                          <Check className="w-4 h-4 text-emerald-600" />
+                        ) : (
+                          <LinkIcon className="w-4 h-4" />
+                        )}
+                      </button>
+                      <button
+                        onClick={() => {
+                          setSelectedStudent(student);
+                          setProfileActiveTab("personal");
+                        }}
+                        className="p-1.5 text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
+                        title="عرض الملف الشامل"
+                      >
+                        <Eye className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={() => handleOpenEdit(student)}
+                        className="p-1.5 text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"
+                        title="تعديل"
+                      >
+                        <Edit2 className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={() => deleteStudent(student.id)}
+                        className="p-1.5 text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
+                        title="أرشفة / حذف"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>
@@ -607,7 +696,7 @@ export const StudentsManagerView: React.FC = () => {
                     : "border-transparent text-slate-500 hover:text-slate-900"
                 }`}
               >
-                الوثائق والمستندات ({selectedStudent.documents.length})
+                الوثائق والمستندات ({selectedStudent.documents?.length || 0})
               </button>
               <button
                 onClick={() => setProfileActiveTab("academic")}
@@ -772,7 +861,7 @@ export const StudentsManagerView: React.FC = () => {
                   </div>
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    {selectedStudent.documents.map((doc) => (
+                    {(selectedStudent.documents || []).map((doc) => (
                       <div key={doc.id} className="p-3 bg-slate-50 rounded-xl border border-slate-200 flex items-center justify-between">
                         <div className="flex items-center gap-2.5">
                           <FileText className="w-5 h-5 text-indigo-600" />
@@ -794,7 +883,7 @@ export const StudentsManagerView: React.FC = () => {
                 <div className="space-y-3">
                   <h4 className="font-bold text-slate-900">السجل الأكاديمي والتحصيل السابق</h4>
                   <div className="space-y-2">
-                    {selectedStudent.academicHistory.map((hist, idx) => (
+                    {(selectedStudent.academicHistory || []).map((hist, idx) => (
                       <div key={idx} className="p-3 bg-slate-50 rounded-xl border border-slate-200 flex items-center justify-between">
                         <div>
                           <div className="font-bold text-slate-900">{hist.gradeName} ({hist.year})</div>
@@ -816,11 +905,24 @@ export const StudentsManagerView: React.FC = () => {
                     <span>تفاصيل النقل والمواصلات</span>
                   </div>
                   <div className="text-slate-700 space-y-1.5">
-                    <div>حالة الاشتراك: <strong>{selectedStudent.transportation.usesBus ? "مشترك في خدمة الحافلات المدرسية" : "نقل خاص"}</strong></div>
-                    {selectedStudent.transportation.usesBus && (
+                    <div>
+                      حالة الاشتراك:{" "}
+                      <strong>
+                        {selectedStudent.transportation?.usesBus || selectedStudent.hasTransportation
+                          ? "مشترك في خدمة الحافلات المدرسية"
+                          : "نقل خاص"}
+                      </strong>
+                    </div>
+                    {(selectedStudent.transportation?.usesBus || selectedStudent.hasTransportation) && (
                       <>
-                        <div>نقطة الركوب الصباحية: <strong>{selectedStudent.transportation.pickupStopName}</strong></div>
-                        <div>نقطة النزول المسائية: <strong>{selectedStudent.transportation.dropoffStopName}</strong></div>
+                        <div>
+                          نقطة الركوب الصباحية:{" "}
+                          <strong>{selectedStudent.transportation?.pickupStopName || "الموقف المعتمد"}</strong>
+                        </div>
+                        <div>
+                          نقطة النزول المسائية:{" "}
+                          <strong>{selectedStudent.transportation?.dropoffStopName || "الموقف المعتمد"}</strong>
+                        </div>
                       </>
                     )}
                   </div>

@@ -242,7 +242,7 @@ export const FinancialsView: React.FC = () => {
                 >
                   {students.map((s) => (
                     <option key={s.id} value={s.id}>
-                      {s.fullName} - {s.gradeName} (المتبقي: {s.finance.balance} ر.س)
+                      {s.fullName} - {s.gradeName} (المتبقي: {(s.finance?.balance ?? s.remainingBalance ?? 0).toLocaleString()} ر.س)
                     </option>
                   ))}
                 </select>

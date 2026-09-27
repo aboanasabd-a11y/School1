@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useSchool } from "../../context/SchoolContext";
 import { UserRole } from "../../types";
 import {
@@ -8,7 +8,11 @@ import {
   Edit3,
   Youtube,
   Send,
-  ExternalLink,
+  Camera,
+  Plus,
+  Sparkles,
+  Building2,
+  GraduationCap,
 } from "lucide-react";
 import { EditSchoolModal } from "../common/EditSchoolModal";
 import { PushNotificationCenter } from "../common/PushNotificationCenter";
@@ -23,21 +27,22 @@ export const Header: React.FC<HeaderProps> = ({ onToggleSidebar }) => {
     switchRole,
     userProfiles,
     schoolInfo,
+    updateSchoolInfo,
     unreadPushCount,
-    setActiveModule,
   } = useSchool();
 
   const [showRoleMenu, setShowRoleMenu] = useState(false);
   const [showEditSchoolModal, setShowEditSchoolModal] = useState(false);
+  const [modalTab, setModalTab] = useState<"school" | "branding" | "developer">("branding");
   const [showNotificationCenter, setShowNotificationCenter] = useState(false);
   const [currentTimeStr, setCurrentTimeStr] = useState("");
   const [currentDateStr, setCurrentDateStr] = useState("");
+  const quickLogoInputRef = useRef<HTMLInputElement>(null);
 
-  // Live real-time clock matching the image: 10:24 ص | الأحد 2025/09/21
+  // Live real-time clock: 10:24 ص | الأحد 2025/09/21
   useEffect(() => {
     const updateTime = () => {
       const now = new Date();
-      // Format time in Arabic 12-hour: 10:24 ص
       let hours = now.getHours();
       const minutes = now.getMinutes().toString().padStart(2, "0");
       const isPm = hours >= 12;
@@ -45,7 +50,6 @@ export const Header: React.FC<HeaderProps> = ({ onToggleSidebar }) => {
       const ampm = isPm ? "م" : "ص";
       setCurrentTimeStr(`${hours}:${minutes} ${ampm}`);
 
-      // Format date in Arabic: الأحد 2025/09/21
       const days = ["الأحد", "الإثنين", "الثلاثاء", "الأربعاء", "الخميس", "الجمعة", "السبت"];
       const dayName = days[now.getDay()];
       const year = now.getFullYear();
@@ -58,6 +62,24 @@ export const Header: React.FC<HeaderProps> = ({ onToggleSidebar }) => {
     const interval = setInterval(updateTime, 1000);
     return () => clearInterval(interval);
   }, []);
+
+  const handleQuickLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const result = event.target?.result as string;
+      if (result) {
+        updateSchoolInfo({ logoUrl: result });
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const openModal = (tab: "school" | "branding" | "developer" = "branding") => {
+    setModalTab(tab);
+    setShowEditSchoolModal(true);
+  };
 
   const getRoleLabel = (role: UserRole) => {
     switch (role) {
@@ -72,15 +94,35 @@ export const Header: React.FC<HeaderProps> = ({ onToggleSidebar }) => {
       case "accountant":
         return "المحاسب المالي";
       case "bus_supervisor":
-        return "مشرف الحافلات";
+        return "مشرف الحافلات والنقل";
+      default:
+        return "مستخدم النظام";
     }
   };
 
+  // Clean Ministry name to avoid legacy Iraqi defaults
+  const displayMinistry =
+    schoolInfo.ministry?.replace("جمهورية العراق - ", "") || "وزارة التربية والتعليم";
+  const displayDirectorate =
+    schoolInfo.directorate === "المديرية العامة لتربية بغداد"
+      ? "إدارة التعليم الأهلي والخاص"
+      : schoolInfo.directorate || "إدارة التعليم الأهلي والخاص";
+
   return (
     <>
+      {/* Hidden file input for fast logo upload */}
+      <input
+        type="file"
+        ref={quickLogoInputRef}
+        accept="image/png, image/jpeg, image/jpg, image/svg+xml, image/webp"
+        onChange={handleQuickLogoUpload}
+        className="hidden"
+        id="quick-header-logo-upload"
+      />
+
       <header className="bg-[#0b3b60] text-white shrink-0 shadow-md select-none border-b border-[#082a45]">
         <div className="px-3 sm:px-4 py-2 flex items-center justify-between gap-2 sm:gap-4 flex-wrap">
-          {/* RIGHT SIDE (in RTL): Menu Toggle + Developer Branding + Socials */}
+          {/* RIGHT SIDE (in RTL): Menu Toggle + School Name & Badge */}
           <div className="flex items-center gap-3 sm:gap-4 order-1">
             <button
               onClick={onToggleSidebar}
@@ -90,84 +132,84 @@ export const Header: React.FC<HeaderProps> = ({ onToggleSidebar }) => {
               <Menu className="w-6 h-6" />
             </button>
 
-            {/* Developer Identity Block matching Ahmedpc */}
+            {/* School / System Identity */}
             <div className="flex items-center gap-2 group">
-              {/* Graduation Cap Logo Icon */}
-              <div className="w-8 h-8 rounded-md bg-white/10 flex items-center justify-center text-white shrink-0 border border-white/20">
-                <svg
-                  className="w-5 h-5 fill-current text-white"
-                  viewBox="0 0 24 24"
-                >
-                  <path d="M12 3L1 9l11 6 9-4.91V17h2V9L12 3z M5 13.18v4L12 21l7-3.82v-4L12 17l-7-3.82z" />
-                </svg>
+              <div
+                onClick={() => openModal("branding")}
+                className="w-9 h-9 rounded-lg bg-white/10 flex items-center justify-center text-white shrink-0 border border-white/20 cursor-pointer hover:bg-white/20 transition-colors shadow-xs"
+                title="تخصيص لوغو وهوية المدرسة"
+              >
+                {schoolInfo.logoUrl ? (
+                  <img
+                    src={schoolInfo.logoUrl}
+                    alt={schoolInfo.schoolName || "اللوغو"}
+                    className="w-7 h-7 object-contain rounded-xs"
+                  />
+                ) : (
+                  <GraduationCap className="w-5 h-5 text-sky-200" />
+                )}
               </div>
 
               <div>
                 <div className="flex items-center gap-1.5">
                   <span className="font-bold text-sm tracking-wide text-white drop-shadow-xs">
-                    {schoolInfo.developerName || "Ahmedpc"}
+                    {schoolInfo.schoolName || "المدرسة النموذجية الأهلية"}
                   </span>
                   <button
-                    onClick={() => setShowEditSchoolModal(true)}
-                    className="opacity-60 hover:opacity-100 transition-opacity p-0.5 rounded hover:bg-white/10"
-                    title="تعديل معلومات المدرسة والمطور"
+                    onClick={() => openModal("school")}
+                    className="opacity-70 hover:opacity-100 transition-opacity p-0.5 rounded hover:bg-white/10 cursor-pointer"
+                    title="تعديل اسم المدرسة وبياناتها"
                   >
                     <Edit3 className="w-3 h-3 text-sky-200" />
                   </button>
                 </div>
 
-                {/* Social icons row: Youtube, Facebook, Telegram, TikTok */}
+                {/* Social icons row */}
                 <div className="flex items-center gap-1.5 text-white/70 text-[11px] mt-0.5">
-                  {/* YouTube */}
-                  <a
-                    href={schoolInfo.developerSocials?.youtube || "#"}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="hover:text-white transition-colors"
-                    title="YouTube"
-                  >
-                    <Youtube className="w-3 h-3" />
-                  </a>
-                  {/* Facebook */}
-                  <a
-                    href={schoolInfo.developerSocials?.facebook || "#"}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="hover:text-white transition-colors"
-                    title="Facebook"
-                  >
-                    <svg className="w-3 h-3 fill-current" viewBox="0 0 24 24">
-                      <path d="M9 8H6v4h3v12h5V12h3.642L18 8h-4V6.333C14 5.374 14.5 5 15.6 5H18V0h-3.808C10.596 0 9 1.583 9 4.615V8z" />
-                    </svg>
-                  </a>
-                  {/* Telegram */}
-                  <a
-                    href={schoolInfo.developerSocials?.telegram || "#"}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="hover:text-white transition-colors"
-                    title="Telegram"
-                  >
-                    <Send className="w-3 h-3" />
-                  </a>
-                  {/* TikTok */}
-                  <a
-                    href={schoolInfo.developerSocials?.tiktok || "#"}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="hover:text-white transition-colors"
-                    title="TikTok"
-                  >
-                    <svg className="w-3 h-3 fill-current" viewBox="0 0 24 24">
-                      <path d="M12.525.02c1.31-.02 2.61-.01 3.91-.02.08 1.53.63 3.09 1.75 4.17 1.12 1.11 2.7 1.62 4.24 1.79v4.03c-1.44-.05-2.89-.35-4.2-.97-.57-.26-1.1-.59-1.62-.93-.01 2.92.01 5.84-.02 8.75-.08 1.4-.54 2.79-1.35 3.94-1.31 1.92-3.58 3.17-5.91 3.21-1.43.08-2.86-.31-4.08-1.03-2.02-1.19-3.44-3.37-3.65-5.71-.02-.5-.03-1-.01-1.49.18-1.9 1.12-3.72 2.58-4.96 1.66-1.44 3.98-2.13 6.15-1.72.02 1.48-.04 2.96-.04 4.44-.99-.32-2.15-.23-3.02.37-.63.41-1.11 1.04-1.36 1.75-.21.51-.24 1.07-.14 1.61.24 1.64 1.82 3.02 3.5 2.87 1.12-.01 2.19-.66 2.77-1.61.19-.33.4-.67.41-1.06.1-1.79.06-3.57.07-5.36.01-4.03-.01-8.05.02-12.07z" />
-                    </svg>
-                  </a>
+                  {schoolInfo.developerSocials?.youtube && (
+                    <a
+                      href={schoolInfo.developerSocials.youtube}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="hover:text-white transition-colors"
+                      title="YouTube"
+                    >
+                      <Youtube className="w-3 h-3" />
+                    </a>
+                  )}
+                  {schoolInfo.developerSocials?.facebook && (
+                    <a
+                      href={schoolInfo.developerSocials.facebook}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="hover:text-white transition-colors"
+                      title="Facebook"
+                    >
+                      <svg className="w-3 h-3 fill-current" viewBox="0 0 24 24">
+                        <path d="M9 8H6v4h3v12h5V12h3.642L18 8h-4V6.333C14 5.374 14.5 5 15.6 5H18V0h-3.808C10.596 0 9 1.583 9 4.615V8z" />
+                      </svg>
+                    </a>
+                  )}
+                  {schoolInfo.developerSocials?.telegram && (
+                    <a
+                      href={schoolInfo.developerSocials.telegram}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="hover:text-white transition-colors"
+                      title="Telegram"
+                    >
+                      <Send className="w-3 h-3" />
+                    </a>
+                  )}
+                  <span className="text-[10px] text-sky-200/80">
+                    {schoolInfo.motto || "بالعلم والمعرفة نبني المستقبل"}
+                  </span>
                 </div>
               </div>
             </div>
           </div>
 
-          {/* CENTER: Live Date & Time + Notification Badge (matching image) */}
+          {/* CENTER: Live Date & Time + Notification Badge */}
           <div className="flex items-center gap-3 order-3 sm:order-2 mx-auto sm:mx-0">
             {/* Notification Bell with Badge */}
             <div className="relative">
@@ -192,59 +234,77 @@ export const Header: React.FC<HeaderProps> = ({ onToggleSidebar }) => {
             </div>
           </div>
 
-          {/* LEFT SIDE: Iraqi Emblem & Ministry + Directorate + User Avatar */}
-          <div className="flex items-center gap-3 sm:gap-5 order-2 sm:order-3">
-            {/* Republic of Iraq & Ministry of Education */}
+          {/* LEFT SIDE: School Official Logo + Ministry + User Profile */}
+          <div className="flex items-center gap-3 sm:gap-4 order-2 sm:order-3">
+            {/* School Logo & Ministry / Directorate Info */}
             <div className="flex items-center gap-2.5 text-left text-xs">
               <div className="hidden md:block leading-tight text-right">
                 <div className="font-bold text-white tracking-wide">
-                  {schoolInfo.country || "جمهورية العراق"}
+                  {displayMinistry}
                 </div>
                 <div className="text-[11px] text-sky-200 font-medium">
-                  {schoolInfo.ministry.replace("جمهورية العراق - ", "") || "وزارة التربية"}
+                  {displayDirectorate}
                 </div>
-                <div className="text-[10.5px] text-sky-300/90">
-                  {schoolInfo.directorate || "المديرية العامة لتربية بغداد"}
+                <div className="text-[10px] text-sky-300/90">
+                  {schoolInfo.location || "الإدارة العامة للتعليم"}
                 </div>
               </div>
 
-              {/* Iraqi Republic Golden Coat of Arms (Eagle Emblem) */}
-              <div
-                onClick={() => setShowEditSchoolModal(true)}
-                className="w-10 h-10 rounded-full bg-gradient-to-b from-amber-400/20 to-amber-600/30 border border-amber-300/40 p-1 flex items-center justify-center cursor-pointer hover:scale-105 transition-transform"
-                title="تعديل بيانات وشعار المدرسة والتربية"
-              >
-                <svg
-                  className="w-7 h-7"
-                  viewBox="0 0 100 100"
-                  fill="none"
-                  xmlns="http://www.w3.org/2000/svg"
+              {/* School Logo Box (with click-to-upload or edit) */}
+              {schoolInfo.logoUrl ? (
+                <div
+                  onClick={() => openModal("branding")}
+                  className="relative group cursor-pointer"
+                  title="لوغو المدرسة المعتمد - انقر للتعديل أو تغيير الشعار"
                 >
-                  {/* Golden Eagle stylized silhouette representing Iraq's emblem */}
-                  <path
-                    d="M50 8 C40 18 30 25 20 30 C25 45 28 65 35 78 C40 85 45 88 50 92 C55 88 60 85 65 78 C72 65 75 45 80 30 C70 25 60 18 50 8 Z"
-                    fill="#eab308"
-                    stroke="#ca8a04"
-                    strokeWidth="2"
-                  />
-                  {/* Iraq Flag center Shield */}
-                  <rect x="42" y="38" width="16" height="32" rx="2" fill="#dc2626" />
-                  <rect x="42" y="48" width="16" height="11" fill="#ffffff" />
-                  <rect x="42" y="59" width="16" height="11" fill="#0f172a" />
-                  {/* Green stars / Takbir */}
-                  <circle cx="50" cy="53.5" r="2" fill="#16a34a" />
-                </svg>
-              </div>
+                  <div className="w-11 h-11 rounded-xl bg-white p-1 border-2 border-white/80 shadow-md flex items-center justify-center overflow-hidden transition-transform group-hover:scale-105">
+                    <img
+                      src={schoolInfo.logoUrl}
+                      alt={schoolInfo.schoolName || "لوغو المدرسة"}
+                      className="w-full h-full object-contain"
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      quickLogoInputRef.current?.click();
+                    }}
+                    className="absolute -bottom-1 -left-1 w-5 h-5 bg-sky-600 hover:bg-sky-500 text-white rounded-full flex items-center justify-center shadow-md border border-white opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
+                    title="تغيير الشعار من جهازك مباشرة"
+                  >
+                    <Camera className="w-2.5 h-2.5" />
+                  </button>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => openModal("branding")}
+                  className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border border-dashed border-sky-300/60 bg-sky-500/10 hover:bg-sky-500/20 text-white cursor-pointer transition-all hover:scale-102 group"
+                  title="انقر لإضافة ورفع شعار / لوغو المدرسة"
+                >
+                  <div className="w-8 h-8 rounded-lg bg-sky-600/70 flex items-center justify-center text-white border border-sky-400/40 shrink-0">
+                    <Plus className="w-4 h-4 text-sky-200 group-hover:scale-110 transition-transform" />
+                  </div>
+                  <div className="hidden sm:block text-right leading-tight">
+                    <div className="text-[11px] font-bold text-white flex items-center gap-1">
+                      <span>إضافة اللوغو</span>
+                      <Sparkles className="w-3 h-3 text-amber-300" />
+                    </div>
+                    <div className="text-[9.5px] text-sky-200">رفع شعار المدرسة</div>
+                  </div>
+                </button>
+              )}
             </div>
 
             {/* Vertical Separator */}
             <div className="h-8 w-px bg-white/20 hidden sm:block" />
 
-            {/* Principal Profile Box (matching image top-left) */}
+            {/* Principal Profile Box */}
             <div className="relative">
               <button
                 onClick={() => setShowRoleMenu(!showRoleMenu)}
-                className="flex items-center gap-2 text-right p-1 rounded-lg hover:bg-white/10 transition-colors"
+                className="flex items-center gap-2 text-right p-1 rounded-lg hover:bg-white/10 transition-colors cursor-pointer"
               >
                 <div className="w-8 h-8 rounded-full border-2 border-white/80 bg-white/20 flex items-center justify-center overflow-hidden shrink-0">
                   {currentUser.avatar ? (
@@ -288,7 +348,7 @@ export const Header: React.FC<HeaderProps> = ({ onToggleSidebar }) => {
                           switchRole(user.role);
                           setShowRoleMenu(false);
                         }}
-                        className={`w-full text-right px-3 py-1.5 rounded-lg text-xs flex items-center gap-2 transition-colors ${
+                        className={`w-full text-right px-3 py-1.5 rounded-lg text-xs flex items-center gap-2 transition-colors cursor-pointer ${
                           currentUser.role === user.role
                             ? "bg-sky-50 text-sky-900 font-bold"
                             : "hover:bg-slate-50 text-slate-700"
@@ -310,12 +370,22 @@ export const Header: React.FC<HeaderProps> = ({ onToggleSidebar }) => {
                     <button
                       onClick={() => {
                         setShowRoleMenu(false);
-                        setShowEditSchoolModal(true);
+                        openModal("branding");
                       }}
-                      className="w-full text-right px-3 py-1.5 rounded-lg text-xs font-bold text-sky-700 hover:bg-sky-50 flex items-center gap-2"
+                      className="w-full text-right px-3 py-1.5 rounded-lg text-xs font-bold text-sky-700 hover:bg-sky-50 flex items-center gap-2 cursor-pointer"
+                    >
+                      <Camera className="w-3.5 h-3.5" />
+                      <span>تغيير لوغو وشعار المدرسة</span>
+                    </button>
+                    <button
+                      onClick={() => {
+                        setShowRoleMenu(false);
+                        openModal("school");
+                      }}
+                      className="w-full text-right px-3 py-1.5 rounded-lg text-xs font-bold text-slate-700 hover:bg-slate-50 flex items-center gap-2 cursor-pointer"
                     >
                       <Edit3 className="w-3.5 h-3.5" />
-                      <span>تعديل اللوغو ومعلومات المدرسة</span>
+                      <span>تعديل بيانات المدرسة والتربية</span>
                     </button>
                   </div>
                 </div>
@@ -329,6 +399,7 @@ export const Header: React.FC<HeaderProps> = ({ onToggleSidebar }) => {
       <EditSchoolModal
         isOpen={showEditSchoolModal}
         onClose={() => setShowEditSchoolModal(false)}
+        defaultTab={modalTab}
       />
 
       {/* Push Notification Drawer Center */}

@@ -41,7 +41,7 @@ export const TransportationView: React.FC = () => {
     driverPhone: "07709876543",
     supervisorName: "أ. ماجد العبيدي",
     supervisorPhone: "07711223344",
-    busPlateNumber: "بغداد 54321 فحص",
+    busPlateNumber: "أ د ح 5432",
     capacity: 32,
     areaName: "حي الجامعة وحي الخضراء",
     morningShiftTime: "06:45 ص",
@@ -132,7 +132,7 @@ export const TransportationView: React.FC = () => {
         },
         {
           id: `stop-${Date.now()}-3`,
-          name: "بوابة متوسطة الرافدين",
+          name: "بوابة المدرسة الرئيسية",
           scheduledTime: "07:35 ص",
           completed: false,
           studentsCount: 17,
@@ -282,13 +282,13 @@ export const TransportationView: React.FC = () => {
                   </span>
                 </div>
 
-                {/* Stop 3: بوابة المدرسة (متوسطة الرافدين للبنين) */}
+                {/* Stop 3: بوابة المدرسة */}
                 <div className="absolute top-1/2 right-10 -translate-y-1/2 flex flex-col items-center">
                   <div className="w-8 h-8 rounded-full bg-amber-500 text-slate-950 flex items-center justify-center text-sm font-black ring-4 ring-amber-500/30 shadow-lg">
                     🏫
                   </div>
                   <span className="text-[10px] font-bold text-amber-300 mt-1.5 bg-slate-900/90 px-2 py-0.5 rounded border border-amber-500/30 whitespace-nowrap">
-                    متوسطة الرافدين
+                    بوابة المدرسة
                   </span>
                 </div>
 
