@@ -31,6 +31,8 @@ import {
   Star,
   ClipboardList,
   CheckCircle,
+  X,
+  Printer,
 } from "lucide-react";
 
 export const TeacherPortal: React.FC = () => {
@@ -339,7 +341,19 @@ export const TeacherPortal: React.FC = () => {
       effectiveGrades.some((gr) => gr.id === ex.gradeId)
   );
 
-  const effectiveExams = (teacherExams.length > 0 ? teacherExams : exams).filter((ex) => {
+  const baseExamsPool = teacherExams.length > 0 ? teacherExams : exams;
+
+  const teacherMonthlyCount = baseExamsPool.filter(
+    (e) => e.category === "monthly" || e.type === "monthly"
+  ).length;
+  const teacherQuizCount = baseExamsPool.filter(
+    (e) => e.category === "quiz" || e.type === "quiz"
+  ).length;
+  const teacherExamCount = baseExamsPool.filter(
+    (e) => e.category === "exam" || e.type === "midterm" || e.type === "final" || e.type === "coursework"
+  ).length;
+
+  const effectiveExams = baseExamsPool.filter((ex) => {
     if (teacherCatFilter === "all") return true;
     if (teacherCatFilter === "monthly") return ex.category === "monthly" || ex.type === "monthly";
     if (teacherCatFilter === "quiz") return ex.category === "quiz" || ex.type === "quiz";
@@ -349,6 +363,98 @@ export const TeacherPortal: React.FC = () => {
   });
 
   const [selectedExamId, setSelectedExamId] = useState<string>(effectiveExams[0]?.id || exams[0]?.id || "");
+
+  useEffect(() => {
+    if (effectiveExams.length > 0 && !effectiveExams.some((e) => e.id === selectedExamId)) {
+      setSelectedExamId(effectiveExams[0].id);
+    }
+  }, [teacherCatFilter, effectiveExams, selectedExamId]);
+
+  const handleSelectTeacherModalCategory = (cat: AssessmentCategory) => {
+    setTeacherModalCategory(cat);
+    const sub =
+      effectiveSubjects.find((s) => s.id === (teacherExamForm.subjectId || selectedSubjectId)) ||
+      effectiveSubjects[0];
+    const subName = sub ? sub.name : "";
+
+    if (cat === "monthly") {
+      setTeacherExamForm((prev) => ({
+        ...prev,
+        category: "monthly",
+        type: "monthly",
+        assessmentCategoryName: "تقييم شهري",
+        title: `تقييم الشهر الثاني - ${subName || "المادة"}`,
+        maxScore: 30,
+        passingScore: 15,
+        durationMinutes: 30,
+        room: "القاعة الصفية",
+      }));
+    } else if (cat === "quiz") {
+      setTeacherExamForm((prev) => ({
+        ...prev,
+        category: "quiz",
+        type: "quiz",
+        assessmentCategoryName: "مذاكرة",
+        title: `المذاكرة الأولى (مراجعة دورية) - ${subName || "المادة"}`,
+        maxScore: 20,
+        passingScore: 10,
+        durationMinutes: 25,
+        room: "القاعة الصفية",
+      }));
+    } else {
+      setTeacherExamForm((prev) => ({
+        ...prev,
+        category: "exam",
+        type: "midterm",
+        assessmentCategoryName: "امتحان",
+        title: `امتحان منتصف الفصل الدراسي الثاني - ${subName || "المادة"}`,
+        maxScore: 40,
+        passingScore: 20,
+        durationMinutes: 60,
+        room: "القاعة الرئيسية 1",
+      }));
+    }
+  };
+
+  const handleSaveTeacherExam = (e: React.FormEvent) => {
+    e.preventDefault();
+    const sub =
+      effectiveSubjects.find((s) => s.id === (teacherExamForm.subjectId || selectedSubjectId)) ||
+      effectiveSubjects[0];
+    const grd =
+      effectiveGrades.find((g) => g.id === (teacherExamForm.gradeId || selectedGradeId)) ||
+      effectiveGrades[0];
+
+    const generatedId = `exam-t-${Date.now()}`;
+    addExam({
+      id: generatedId,
+      title: teacherExamForm.title || `${teacherExamForm.assessmentCategoryName} - ${sub?.name || ""}`,
+      type: teacherExamForm.type,
+      category: teacherExamForm.category,
+      assessmentCategoryName: teacherExamForm.assessmentCategoryName,
+      subjectId: sub?.id || "sub-1",
+      subjectName: sub?.name || "المادة الدراسية",
+      gradeId: grd?.id || "grade-1",
+      gradeName: grd?.name || "المرحلة الدراسية",
+      date: teacherExamForm.date || todayStr,
+      startTime: teacherExamForm.startTime || "08:30",
+      durationMinutes: Number(teacherExamForm.durationMinutes) || 30,
+      maxMarks: Number(teacherExamForm.maxScore) || 30,
+      passMarks: Number(teacherExamForm.passingScore) || 15,
+      maxScore: Number(teacherExamForm.maxScore) || 30,
+      passingScore: Number(teacherExamForm.passingScore) || 15,
+      weighting:
+        teacherExamForm.category === "monthly" ? 20 : teacherExamForm.category === "quiz" ? 15 : 40,
+      term: teacherExamForm.term || "الفصل الثاني",
+      room: teacherExamForm.room || "القاعة الصفية",
+      status: "completed",
+    });
+
+    setSelectedExamId(generatedId);
+    setShowTeacherAddExamModal(false);
+    setGradeSavedToast(true);
+    setTimeout(() => setGradeSavedToast(false), 3000);
+  };
   const [selectedSubjectId, setSelectedSubjectId] = useState<string>(
     effectiveSubjects[0]?.id || subjects[0]?.id || ""
   );
@@ -1155,141 +1261,368 @@ export const TeacherPortal: React.FC = () => {
       {/* TAB 3: GRADING & EXAMS ENTRY (Scoped to Teacher's Subjects) */}
       {activeTab === "grades" && (
         <div className="space-y-4">
+          {/* Top Category Filter & Actions Bar */}
           <div className="bg-white rounded-2xl p-4 border border-slate-200 shadow-2xs flex flex-wrap items-center justify-between gap-3">
-            <div className="flex flex-wrap items-center gap-3">
-              <div>
-                <label className="text-[10px] text-slate-500 font-bold block mb-0.5">الاختبار / التقييم:</label>
-                <select
-                  value={selectedExamId}
-                  onChange={(e) => setSelectedExamId(e.target.value)}
-                  className="bg-slate-50 border border-slate-200 text-slate-800 text-xs rounded-xl px-3 py-1.5 font-bold focus:ring-2 focus:ring-emerald-500"
-                >
-                  {effectiveExams.map((ex) => (
-                    <option key={ex.id} value={ex.id}>
-                      {ex.title} ({ex.term})
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Subject dropdown - strictly teacher's assigned subjects! */}
-              <div>
-                <label className="text-[10px] text-slate-500 font-bold block mb-0.5">المادة المسندة:</label>
-                <select
-                  value={selectedSubjectId}
-                  onChange={(e) => setSelectedSubjectId(e.target.value)}
-                  className="bg-slate-50 border border-slate-200 text-slate-800 text-xs rounded-xl px-3 py-1.5 font-bold focus:ring-2 focus:ring-emerald-500"
-                >
-                  {effectiveSubjects.map((sub) => (
-                    <option key={sub.id} value={sub.id}>
-                      {sub.name} (الدرجة العظمى: {sub.maxScore})
-                    </option>
-                  ))}
-                </select>
-              </div>
+            {/* Category Filter Pills */}
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setTeacherCatFilter("all")}
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                  teacherCatFilter === "all"
+                    ? "bg-emerald-600 text-white shadow-xs"
+                    : "bg-slate-100 text-slate-700 hover:bg-slate-200"
+                }`}
+              >
+                الكل ({baseExamsPool.length})
+              </button>
+              <button
+                type="button"
+                onClick={() => setTeacherCatFilter("monthly")}
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                  teacherCatFilter === "monthly"
+                    ? "bg-emerald-600 text-white shadow-xs"
+                    : "bg-emerald-50 text-emerald-800 hover:bg-emerald-100 border border-emerald-200"
+                }`}
+              >
+                <ClipboardList className="w-3.5 h-3.5" />
+                <span>التقييمات الشهرية ({teacherMonthlyCount})</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setTeacherCatFilter("quiz")}
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                  teacherCatFilter === "quiz"
+                    ? "bg-amber-600 text-white shadow-xs"
+                    : "bg-amber-50 text-amber-800 hover:bg-amber-100 border border-amber-200"
+                }`}
+              >
+                <FileText className="w-3.5 h-3.5" />
+                <span>المذاكرات ({teacherQuizCount})</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setTeacherCatFilter("exam")}
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                  teacherCatFilter === "exam"
+                    ? "bg-indigo-600 text-white shadow-xs"
+                    : "bg-indigo-50 text-indigo-800 hover:bg-indigo-100 border border-indigo-200"
+                }`}
+              >
+                <Award className="w-3.5 h-3.5" />
+                <span>الامتحانات ({teacherExamCount})</span>
+              </button>
             </div>
 
-            <button
-              onClick={handleSaveGrades}
-              className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold px-4 py-2 rounded-xl shadow-xs flex items-center gap-1.5 transition-colors cursor-pointer"
-            >
-              <Award className="w-4 h-4" />
-              <span>حفظ واعتماد الدرجات</span>
-            </button>
-          </div>
+            {/* Quick Action Buttons */}
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  handleSelectTeacherModalCategory("monthly");
+                  setShowTeacherAddExamModal(true);
+                }}
+                className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold px-3.5 py-2 rounded-xl shadow-xs flex items-center gap-1.5 transition-colors cursor-pointer"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span>إضافة تقييم / مذاكرة / امتحان</span>
+              </button>
 
-          {gradeSavedToast && (
-            <div className="p-3 bg-emerald-50 border border-emerald-300 text-emerald-800 rounded-xl text-xs font-bold flex items-center gap-2 animate-in fade-in">
-              <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-              تم رصد وتحديث درجات الطلاب بنجاح في سجلات الدرجات الرسمية.
-            </div>
-          )}
-
-          <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
-            <div className="p-3.5 bg-slate-50 border-b border-slate-200 flex items-center justify-between text-xs">
-              <span className="font-bold text-slate-800">
-                جدول رصد درجات مادة{" "}
-                {effectiveSubjects.find((s) => s.id === selectedSubjectId)?.name || "المادة"}
-              </span>
-              <span className="text-[11px] text-slate-500">الدرجة من 100</span>
-            </div>
-
-            <div className="overflow-x-auto">
-              <table className="w-full text-right text-xs">
-                <thead className="bg-slate-50 text-slate-700 font-bold border-b border-slate-200">
-                  <tr>
-                    <th className="p-3">الطالب</th>
-                    <th className="p-3">الرقم الأكاديمي</th>
-                    <th className="p-3">الدرجة المرصودة</th>
-                    <th className="p-3">النسبة المئوية</th>
-                    <th className="p-3">التقدير التلقائي</th>
-                    <th className="p-3">الحالة</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {filteredStudents.map((st) => {
-                    const gradeVal = tempGrades[st.id] ?? 92;
-                    const percentage = gradeVal;
-                    const gradeLetter =
-                      percentage >= 90
-                        ? "ممتاز مرتفع A+"
-                        : percentage >= 80
-                        ? "جيد جداً B"
-                        : percentage >= 70
-                        ? "جيد C"
-                        : "مقبول D";
-
-                    return (
-                      <tr key={st.id} className="hover:bg-slate-50/50">
-                        <td className="p-3 font-bold text-slate-900">{st.fullName}</td>
-                        <td className="p-3 font-mono text-slate-600">{st.studentNumber}</td>
-                        <td className="p-3">
-                          <input
-                            type="number"
-                            min="0"
-                            max="100"
-                            value={gradeVal}
-                            onChange={(e) =>
-                              setTempGrades((prev) => ({
-                                ...prev,
-                                [st.id]: Number(e.target.value),
-                              }))
-                            }
-                            className="w-20 bg-slate-50 border border-slate-300 rounded-lg px-2 py-1 font-bold text-xs text-center focus:bg-white focus:ring-2 focus:ring-emerald-500"
-                          />
-                        </td>
-                        <td className="p-3 font-bold text-slate-800">{percentage}%</td>
-                        <td className="p-3">
-                          <span
-                            className={`px-2 py-0.5 rounded-md text-[10px] font-bold ${
-                              percentage >= 90
-                                ? "bg-emerald-50 text-emerald-800 border border-emerald-200"
-                                : percentage >= 80
-                                ? "bg-blue-50 text-blue-800 border border-blue-200"
-                                : "bg-amber-50 text-amber-800 border border-amber-200"
-                            }`}
-                          >
-                            {gradeLetter}
-                          </span>
-                        </td>
-                        <td className="p-3">
-                          {percentage >= 60 ? (
-                            <span className="text-emerald-700 font-bold text-[11px] flex items-center gap-1">
-                              <CheckCircle2 className="w-3 h-3" /> ناجح
-                            </span>
-                          ) : (
-                            <span className="text-rose-700 font-bold text-[11px] flex items-center gap-1">
-                              <XCircle className="w-3 h-3" /> غير مجتاز
-                            </span>
-                          )}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
+              <button
+                type="button"
+                onClick={() => {
+                  if (filteredStudents.length > 0) {
+                    setSkillEvalStudentId(filteredStudents[0].id);
+                  }
+                  setShowSkillEvalModal(true);
+                }}
+                className="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 text-xs font-bold px-3 py-2 rounded-xl flex items-center gap-1.5 transition-colors cursor-pointer"
+              >
+                <Star className="w-3.5 h-3.5 text-indigo-600" />
+                <span>تقييم المهارات والمشاركة (Rubric)</span>
+              </button>
             </div>
           </div>
+
+          {/* Exam Selector and Details Card */}
+          {(() => {
+            const activeExamObj =
+              effectiveExams.find((e) => e.id === selectedExamId) || effectiveExams[0] || exams[0];
+            const examMax = activeExamObj?.maxMarks || activeExamObj?.maxScore || 100;
+            const examPass =
+              activeExamObj?.passMarks || activeExamObj?.passingScore || Math.round(examMax * 0.5);
+            const examCategory =
+              activeExamObj?.category ||
+              (activeExamObj?.type === "monthly"
+                ? "monthly"
+                : activeExamObj?.type === "quiz"
+                ? "quiz"
+                : "exam");
+            const examCategoryLabel =
+              activeExamObj?.assessmentCategoryName ||
+              (examCategory === "monthly" ? "تقييم شهري" : examCategory === "quiz" ? "مذاكرة" : "امتحان");
+
+            return (
+              <>
+                <div className="bg-white rounded-2xl p-4 border border-slate-200 shadow-2xs space-y-3">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div className="flex flex-wrap items-center gap-3">
+                      <div>
+                        <label className="text-[10px] text-slate-500 font-bold block mb-0.5">
+                          الاختبار / التقييم المختار:
+                        </label>
+                        <select
+                          value={selectedExamId}
+                          onChange={(e) => setSelectedExamId(e.target.value)}
+                          className="bg-slate-50 border border-slate-200 text-slate-800 text-xs rounded-xl px-3 py-1.5 font-bold focus:ring-2 focus:ring-emerald-500"
+                        >
+                          {effectiveExams.map((ex) => (
+                            <option key={ex.id} value={ex.id}>
+                              {ex.category === "monthly" || ex.type === "monthly"
+                                ? "📋 [تقييم شهري]"
+                                : ex.category === "quiz" || ex.type === "quiz"
+                                ? "📝 [مذاكرة]"
+                                : "🎓 [امتحان]"}{" "}
+                              {ex.title} ({ex.term})
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+
+                      {/* Subject dropdown - strictly teacher's assigned subjects! */}
+                      <div>
+                        <label className="text-[10px] text-slate-500 font-bold block mb-0.5">المادة المسندة:</label>
+                        <select
+                          value={selectedSubjectId}
+                          onChange={(e) => setSelectedSubjectId(e.target.value)}
+                          className="bg-slate-50 border border-slate-200 text-slate-800 text-xs rounded-xl px-3 py-1.5 font-bold focus:ring-2 focus:ring-emerald-500"
+                        >
+                          {effectiveSubjects.map((sub) => (
+                            <option key={sub.id} value={sub.id}>
+                              {sub.name} (الدرجة العظمى: {sub.maxScore || 100})
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={handleSaveGrades}
+                      className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold px-4 py-2 rounded-xl shadow-xs flex items-center gap-1.5 transition-colors cursor-pointer"
+                    >
+                      <Award className="w-4 h-4" />
+                      <span>حفظ واعتماد الدرجات لجميع الطلاب</span>
+                    </button>
+                  </div>
+
+                  {/* Active Assessment Info Banner */}
+                  {activeExamObj && (
+                    <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 flex flex-wrap items-center justify-between gap-2 text-xs">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span
+                          className={`px-2.5 py-0.5 rounded-md text-[10px] font-bold ${
+                            examCategory === "monthly"
+                              ? "bg-emerald-100 text-emerald-800 border border-emerald-300"
+                              : examCategory === "quiz"
+                              ? "bg-amber-100 text-amber-800 border border-amber-300"
+                              : "bg-indigo-100 text-indigo-800 border border-indigo-300"
+                          }`}
+                        >
+                          {examCategoryLabel}
+                        </span>
+                        <span className="font-bold text-slate-800">{activeExamObj.title}</span>
+                        <span className="text-slate-400 font-mono">|</span>
+                        <span className="text-slate-600">التاريخ: {activeExamObj.date}</span>
+                        <span className="text-slate-400 font-mono">|</span>
+                        <span className="text-slate-600">
+                          المدة: {activeExamObj.durationMinutes} دقيقة
+                        </span>
+                      </div>
+
+                      <div className="flex items-center gap-3">
+                        <span className="text-slate-600 text-[11px]">
+                          الدرجة العظمى: <strong className="text-slate-900 font-mono">{examMax}</strong>
+                        </span>
+                        <span className="text-slate-600 text-[11px]">
+                          درجة النجاح: <strong className="text-emerald-700 font-mono">{examPass}</strong>
+                        </span>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Batch Fast-fill Tools */}
+                  <div className="pt-1 flex flex-wrap items-center justify-between gap-2 text-[11px]">
+                    <span className="text-slate-500 font-bold">أدوات الرصد السريع:</span>
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const updated: Record<string, number> = {};
+                          filteredStudents.forEach((st) => {
+                            updated[st.id] = examMax;
+                          });
+                          setTempGrades((prev) => ({ ...prev, ...updated }));
+                        }}
+                        className="px-2.5 py-1 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 font-bold transition-colors cursor-pointer"
+                      >
+                        ✓ الدرجة الكاملة للجميع ({examMax})
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const updated: Record<string, number> = {};
+                          filteredStudents.forEach((st) => {
+                            updated[st.id] = examPass;
+                          });
+                          setTempGrades((prev) => ({ ...prev, ...updated }));
+                        }}
+                        className="px-2.5 py-1 rounded-lg bg-blue-50 hover:bg-blue-100 text-blue-800 border border-blue-200 font-bold transition-colors cursor-pointer"
+                      >
+                        ✓ درجة النجاح للجميع ({examPass})
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const updated: Record<string, number> = {};
+                          filteredStudents.forEach((st) => {
+                            updated[st.id] = 0;
+                          });
+                          setTempGrades((prev) => ({ ...prev, ...updated }));
+                        }}
+                        className="px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold transition-colors cursor-pointer"
+                      >
+                        تصفير
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                {gradeSavedToast && (
+                  <div className="p-3 bg-emerald-50 border border-emerald-300 text-emerald-800 rounded-xl text-xs font-bold flex items-center gap-2 animate-in fade-in">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                    تم رصد وتحديث درجات الطلاب بنجاح في سجلات الدرجات الرسمية للتقييم / المذاكرة / الامتحان.
+                  </div>
+                )}
+
+                {/* Grade Table */}
+                <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
+                  <div className="p-3.5 bg-slate-50 border-b border-slate-200 flex items-center justify-between text-xs">
+                    <span className="font-bold text-slate-800">
+                      جدول رصد درجات {examCategoryLabel} لمادة{" "}
+                      {effectiveSubjects.find((s) => s.id === selectedSubjectId)?.name || "المادة"}
+                    </span>
+                    <span className="text-[11px] text-slate-500 font-mono">
+                      الدرجة المرصودة من {examMax} | درجة النجاح {examPass}
+                    </span>
+                  </div>
+
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-right text-xs">
+                      <thead className="bg-slate-50 text-slate-700 font-bold border-b border-slate-200">
+                        <tr>
+                          <th className="p-3">الطالب</th>
+                          <th className="p-3">الرقم الأكاديمي</th>
+                          <th className="p-3">الدرجة المرصودة (من {examMax})</th>
+                          <th className="p-3">النسبة المئوية</th>
+                          <th className="p-3">التقدير التلقائي</th>
+                          <th className="p-3">الحالة</th>
+                          <th className="p-3 text-center">التقييم المهاري</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100">
+                        {filteredStudents.map((st) => {
+                          const defaultVal = Math.round(examMax * 0.9);
+                          const gradeVal = tempGrades[st.id] ?? defaultVal;
+                          const percentage = Math.min(100, Math.round((gradeVal / examMax) * 100));
+                          const isPassed = gradeVal >= examPass;
+                          const gradeLetter =
+                            percentage >= 95
+                              ? "ممتاز مرتفع A+"
+                              : percentage >= 90
+                              ? "ممتاز A"
+                              : percentage >= 80
+                              ? "جيد جداً B"
+                              : percentage >= 70
+                              ? "جيد C"
+                              : percentage >= 60
+                              ? "مقبول D"
+                              : "راسب F";
+
+                          return (
+                            <tr key={st.id} className="hover:bg-slate-50/50">
+                              <td className="p-3 font-bold text-slate-900">{st.fullName}</td>
+                              <td className="p-3 font-mono text-slate-600">{st.studentNumber}</td>
+                              <td className="p-3">
+                                <div className="flex items-center gap-1.5">
+                                  <input
+                                    type="number"
+                                    min="0"
+                                    max={examMax}
+                                    value={gradeVal}
+                                    onChange={(e) => {
+                                      const val = Math.min(examMax, Math.max(0, Number(e.target.value)));
+                                      setTempGrades((prev) => ({
+                                        ...prev,
+                                        [st.id]: val,
+                                      }));
+                                    }}
+                                    className="w-20 bg-slate-50 border border-slate-300 rounded-lg px-2 py-1 font-bold text-xs text-center focus:bg-white focus:ring-2 focus:ring-emerald-500 font-mono"
+                                  />
+                                  <span className="text-[11px] text-slate-400">/ {examMax}</span>
+                                </div>
+                              </td>
+                              <td className="p-3 font-bold text-slate-800 font-mono">{percentage}%</td>
+                              <td className="p-3">
+                                <span
+                                  className={`px-2 py-0.5 rounded-md text-[10px] font-bold ${
+                                    percentage >= 90
+                                      ? "bg-emerald-50 text-emerald-800 border border-emerald-200"
+                                      : percentage >= 80
+                                      ? "bg-blue-50 text-blue-800 border border-blue-200"
+                                      : percentage >= 60
+                                      ? "bg-amber-50 text-amber-800 border border-amber-200"
+                                      : "bg-rose-50 text-rose-800 border border-rose-200"
+                                  }`}
+                                >
+                                  {gradeLetter}
+                                </span>
+                              </td>
+                              <td className="p-3">
+                                {isPassed ? (
+                                  <span className="text-emerald-700 font-bold text-[11px] flex items-center gap-1">
+                                    <CheckCircle2 className="w-3.5 h-3.5" /> ناجح
+                                  </span>
+                                ) : (
+                                  <span className="text-rose-700 font-bold text-[11px] flex items-center gap-1">
+                                    <XCircle className="w-3.5 h-3.5" /> دون النجاح
+                                  </span>
+                                )}
+                              </td>
+                              <td className="p-3 text-center">
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setSkillEvalStudentId(st.id);
+                                    setShowSkillEvalModal(true);
+                                  }}
+                                  className="px-2.5 py-1 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-[10.5px] font-bold border border-indigo-200 transition-colors inline-flex items-center gap-1 cursor-pointer"
+                                  title="تقييم المشاركة والمهارات الشهرية لهذا الطالب"
+                                >
+                                  <Star className="w-3 h-3 text-amber-500 fill-amber-500" />
+                                  <span>تقييم شهري</span>
+                                </button>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </>
+            );
+          })()}
         </div>
       )}
 
@@ -1536,6 +1869,469 @@ export const TeacherPortal: React.FC = () => {
                 لا توجد رسائل واردة حالياً.
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: ADD NEW MONTHLY EVALUATION / QUIZ / EXAM */}
+      {showTeacherAddExamModal && (
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs z-50 flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-white rounded-3xl p-6 max-w-lg w-full space-y-4 shadow-2xl border border-slate-200 animate-in fade-in zoom-in-95">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <div className="flex items-center gap-2">
+                <Award className="w-5 h-5 text-emerald-600" />
+                <h3 className="font-bold text-slate-900 text-sm">
+                  إضافة تقييم شهري / مذاكرة / امتحان جديد
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowTeacherAddExamModal(false)}
+                className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-500 transition-colors cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* 3-Category Toggle Selection */}
+            <div>
+              <label className="text-[11px] font-bold text-slate-700 block mb-1.5">
+                نوع التقييم الأكاديمي المراد جدولته:
+              </label>
+              <div className="grid grid-cols-3 gap-2">
+                <button
+                  type="button"
+                  onClick={() => handleSelectTeacherModalCategory("monthly")}
+                  className={`py-2.5 px-2 rounded-xl text-xs font-bold border transition-all text-center flex flex-col items-center gap-1 cursor-pointer ${
+                    teacherModalCategory === "monthly"
+                      ? "bg-emerald-50 border-emerald-500 text-emerald-800 shadow-xs"
+                      : "border-slate-200 text-slate-600 hover:bg-slate-50"
+                  }`}
+                >
+                  <ClipboardList className="w-4 h-4 text-emerald-600" />
+                  <span>📋 تقييم شهري</span>
+                  <span className="text-[9.5px] text-slate-400 font-normal">من 30 درجة</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => handleSelectTeacherModalCategory("quiz")}
+                  className={`py-2.5 px-2 rounded-xl text-xs font-bold border transition-all text-center flex flex-col items-center gap-1 cursor-pointer ${
+                    teacherModalCategory === "quiz"
+                      ? "bg-amber-50 border-amber-500 text-amber-800 shadow-xs"
+                      : "border-slate-200 text-slate-600 hover:bg-slate-50"
+                  }`}
+                >
+                  <FileText className="w-4 h-4 text-amber-600" />
+                  <span>📝 مذاكرة</span>
+                  <span className="text-[9.5px] text-slate-400 font-normal">من 20 درجة</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => handleSelectTeacherModalCategory("exam")}
+                  className={`py-2.5 px-2 rounded-xl text-xs font-bold border transition-all text-center flex flex-col items-center gap-1 cursor-pointer ${
+                    teacherModalCategory === "exam"
+                      ? "bg-indigo-50 border-indigo-500 text-indigo-800 shadow-xs"
+                      : "border-slate-200 text-slate-600 hover:bg-slate-50"
+                  }`}
+                >
+                  <Award className="w-4 h-4 text-indigo-600" />
+                  <span>🎓 امتحان</span>
+                  <span className="text-[9.5px] text-slate-400 font-normal">من 40 - 100</span>
+                </button>
+              </div>
+            </div>
+
+            <form onSubmit={handleSaveTeacherExam} className="space-y-3 text-xs">
+              <div>
+                <label className="text-[11px] font-bold text-slate-700 block mb-1">
+                  عنوان التقييم / الاختبار *
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={teacherExamForm.title}
+                  onChange={(e) => setTeacherExamForm((prev) => ({ ...prev, title: e.target.value }))}
+                  placeholder="مثال: تقييم الشهر الثاني - لغتي الجميلة"
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-xs font-bold focus:ring-2 focus:ring-emerald-500"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-[11px] font-bold text-slate-700 block mb-1">المادة المسندة *</label>
+                  <select
+                    value={teacherExamForm.subjectId || selectedSubjectId}
+                    onChange={(e) => {
+                      const sid = e.target.value;
+                      const sObj = effectiveSubjects.find((s) => s.id === sid);
+                      setTeacherExamForm((prev) => ({
+                        ...prev,
+                        subjectId: sid,
+                        title: `${prev.assessmentCategoryName} - ${sObj?.name || ""}`,
+                      }));
+                    }}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2 text-xs font-bold focus:ring-2 focus:ring-emerald-500"
+                  >
+                    {effectiveSubjects.map((sub) => (
+                      <option key={sub.id} value={sub.id}>
+                        {sub.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="text-[11px] font-bold text-slate-700 block mb-1">المرحلة / الصف *</label>
+                  <select
+                    value={teacherExamForm.gradeId || selectedGradeId}
+                    onChange={(e) =>
+                      setTeacherExamForm((prev) => ({ ...prev, gradeId: e.target.value }))
+                    }
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2 text-xs font-bold focus:ring-2 focus:ring-emerald-500"
+                  >
+                    {effectiveGrades.map((gr) => (
+                      <option key={gr.id} value={gr.id}>
+                        {gr.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-3 gap-2">
+                <div>
+                  <label className="text-[10px] font-bold text-slate-700 block mb-1">تاريخ الانعقاد</label>
+                  <input
+                    type="date"
+                    value={teacherExamForm.date}
+                    onChange={(e) =>
+                      setTeacherExamForm((prev) => ({ ...prev, date: e.target.value }))
+                    }
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2 text-xs font-mono font-bold focus:ring-2 focus:ring-emerald-500"
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] font-bold text-slate-700 block mb-1">الدرجة العظمى</label>
+                  <input
+                    type="number"
+                    min="1"
+                    max="100"
+                    value={teacherExamForm.maxScore}
+                    onChange={(e) => {
+                      const max = Number(e.target.value);
+                      setTeacherExamForm((prev) => ({
+                        ...prev,
+                        maxScore: max,
+                        passingScore: Math.round(max * 0.5),
+                      }));
+                    }}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2 text-xs font-mono font-bold text-center focus:ring-2 focus:ring-emerald-500"
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] font-bold text-slate-700 block mb-1">درجة النجاح</label>
+                  <input
+                    type="number"
+                    min="1"
+                    max={teacherExamForm.maxScore}
+                    value={teacherExamForm.passingScore}
+                    onChange={(e) =>
+                      setTeacherExamForm((prev) => ({
+                        ...prev,
+                        passingScore: Number(e.target.value),
+                      }))
+                    }
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2 text-xs font-mono font-bold text-center focus:ring-2 focus:ring-emerald-500"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-[10px] font-bold text-slate-700 block mb-1">المدة (بالدقائق)</label>
+                  <input
+                    type="number"
+                    min="10"
+                    max="180"
+                    value={teacherExamForm.durationMinutes}
+                    onChange={(e) =>
+                      setTeacherExamForm((prev) => ({
+                        ...prev,
+                        durationMinutes: Number(e.target.value),
+                      }))
+                    }
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2 text-xs font-mono focus:ring-2 focus:ring-emerald-500"
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] font-bold text-slate-700 block mb-1">القاعة أو الفصل</label>
+                  <input
+                    type="text"
+                    value={teacherExamForm.room}
+                    onChange={(e) =>
+                      setTeacherExamForm((prev) => ({ ...prev, room: e.target.value }))
+                    }
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2 text-xs focus:ring-2 focus:ring-emerald-500"
+                  />
+                </div>
+              </div>
+
+              <div className="pt-2 flex items-center justify-end gap-2 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setShowTeacherAddExamModal(false)}
+                  className="px-4 py-2 rounded-xl text-slate-600 hover:bg-slate-100 font-bold transition-colors cursor-pointer"
+                >
+                  إلغاء
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold transition-colors shadow-xs cursor-pointer flex items-center gap-1.5"
+                >
+                  <Check className="w-4 h-4" />
+                  <span>اعتماد وإتاحة الرصد الفوري</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: QUALITATIVE MONTHLY RUBRIC EVALUATION */}
+      {showSkillEvalModal && (
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs z-50 flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-white rounded-3xl p-6 max-w-lg w-full space-y-4 shadow-2xl border border-slate-200 animate-in fade-in zoom-in-95">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <div className="flex items-center gap-2">
+                <Star className="w-5 h-5 text-amber-500 fill-amber-500" />
+                <h3 className="font-bold text-slate-900 text-sm">
+                  تقييم المهارات والمشاركة الشهرية للطالب (Rubric)
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowSkillEvalModal(false)}
+                className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-500 transition-colors cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveSkillEvaluation} className="space-y-3.5 text-xs">
+              <div>
+                <label className="text-[11px] font-bold text-slate-700 block mb-1">الطالب المستهدف:</label>
+                <select
+                  value={skillEvalStudentId}
+                  onChange={(e) => setSkillEvalStudentId(e.target.value)}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-xs font-bold focus:ring-2 focus:ring-indigo-500"
+                >
+                  {filteredStudents.map((st) => (
+                    <option key={st.id} value={st.id}>
+                      {st.fullName} ({st.studentNumber})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-[10px] font-bold text-slate-700 block mb-1">الفترة الشهرية:</label>
+                  <select
+                    value={skillEvalForm.period}
+                    onChange={(e) =>
+                      setSkillEvalForm((prev) => ({ ...prev, period: e.target.value }))
+                    }
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2 text-xs font-bold focus:ring-2 focus:ring-indigo-500"
+                  >
+                    <option value="تقييم الشهر الأول - الفصل الدراسي الثاني">تقييم الشهر الأول</option>
+                    <option value="تقييم الشهر الثاني - الفصل الدراسي الثاني">تقييم الشهر الثاني</option>
+                    <option value="تقييم الشهر الثالث - الفصل الدراسي الثاني">تقييم الشهر الثالث</option>
+                    <option value="التقييم الفصلي الشامل">التقييم الفصلي الشامل</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="text-[10px] font-bold text-slate-700 block mb-1">التقدير العام:</label>
+                  <select
+                    value={skillEvalForm.overallRating}
+                    onChange={(e) =>
+                      setSkillEvalForm((prev) => ({
+                        ...prev,
+                        overallRating: e.target.value as EvaluationRecord["overallRating"],
+                      }))
+                    }
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2 text-xs font-bold focus:ring-2 focus:ring-indigo-500"
+                  >
+                    <option value="excellent">ممتاز (A+)</option>
+                    <option value="very_good">جيد جداً (B)</option>
+                    <option value="good">جيد (C)</option>
+                    <option value="needs_improvement">يحتاج إلى دعم ومتابعة</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Rubric Star Criteria */}
+              <div className="p-3.5 bg-slate-50 rounded-2xl border border-slate-200 space-y-3">
+                <span className="font-bold text-slate-800 text-[11px] block">
+                  معايير التقييم النوعي والتربوي (نجوم 1 - 5):
+                </span>
+
+                {/* 1. Participation */}
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-700 font-semibold text-[11px]">
+                    المشاركة والتفاعل الصفي:
+                  </span>
+                  <div className="flex items-center gap-1">
+                    {[1, 2, 3, 4, 5].map((star) => (
+                      <button
+                        key={star}
+                        type="button"
+                        onClick={() =>
+                          setSkillEvalForm((prev) => ({ ...prev, participationStars: star }))
+                        }
+                        className="cursor-pointer"
+                      >
+                        <Star
+                          className={`w-4 h-4 ${
+                            star <= skillEvalForm.participationStars
+                              ? "text-amber-400 fill-amber-400"
+                              : "text-slate-300"
+                          }`}
+                        />
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* 2. Reading */}
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-700 font-semibold text-[11px]">
+                    طلاقة القراءة وإتقان المفاهيم:
+                  </span>
+                  <div className="flex items-center gap-1">
+                    {[1, 2, 3, 4, 5].map((star) => (
+                      <button
+                        key={star}
+                        type="button"
+                        onClick={() =>
+                          setSkillEvalForm((prev) => ({ ...prev, readingStars: star }))
+                        }
+                        className="cursor-pointer"
+                      >
+                        <Star
+                          className={`w-4 h-4 ${
+                            star <= skillEvalForm.readingStars
+                              ? "text-amber-400 fill-amber-400"
+                              : "text-slate-300"
+                          }`}
+                        />
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* 3. Homework */}
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-700 font-semibold text-[11px]">
+                    الالتزام بالواجبات والمهام:
+                  </span>
+                  <div className="flex items-center gap-1">
+                    {[1, 2, 3, 4, 5].map((star) => (
+                      <button
+                        key={star}
+                        type="button"
+                        onClick={() =>
+                          setSkillEvalForm((prev) => ({ ...prev, homeworkStars: star }))
+                        }
+                        className="cursor-pointer"
+                      >
+                        <Star
+                          className={`w-4 h-4 ${
+                            star <= skillEvalForm.homeworkStars
+                              ? "text-amber-400 fill-amber-400"
+                              : "text-slate-300"
+                          }`}
+                        />
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* 4. Conduct */}
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-700 font-semibold text-[11px]">
+                    الانضباط الصفي وحسن الاستماع:
+                  </span>
+                  <div className="flex items-center gap-1">
+                    {[1, 2, 3, 4, 5].map((star) => (
+                      <button
+                        key={star}
+                        type="button"
+                        onClick={() =>
+                          setSkillEvalForm((prev) => ({ ...prev, conductStars: star }))
+                        }
+                        className="cursor-pointer"
+                      >
+                        <Star
+                          className={`w-4 h-4 ${
+                            star <= skillEvalForm.conductStars
+                              ? "text-amber-400 fill-amber-400"
+                              : "text-slate-300"
+                          }`}
+                        />
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <label className="text-[10px] font-bold text-slate-700 block mb-1">
+                  ملاحظات وتوجيهات المعلم:
+                </label>
+                <textarea
+                  rows={2}
+                  value={skillEvalForm.teacherNotes}
+                  onChange={(e) =>
+                    setSkillEvalForm((prev) => ({ ...prev, teacherNotes: e.target.value }))
+                  }
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2 text-xs focus:ring-2 focus:ring-indigo-500"
+                />
+              </div>
+
+              <div>
+                <label className="text-[10px] font-bold text-slate-700 block mb-1">
+                  توصيات ولي الأمر للمتابعة المنزلية:
+                </label>
+                <input
+                  type="text"
+                  value={skillEvalForm.recommendations}
+                  onChange={(e) =>
+                    setSkillEvalForm((prev) => ({ ...prev, recommendations: e.target.value }))
+                  }
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2 text-xs focus:ring-2 focus:ring-indigo-500"
+                />
+              </div>
+
+              <div className="pt-2 flex items-center justify-end gap-2 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setShowSkillEvalModal(false)}
+                  className="px-4 py-2 rounded-xl text-slate-600 hover:bg-slate-100 font-bold transition-colors cursor-pointer"
+                >
+                  إلغاء
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold transition-colors shadow-xs cursor-pointer flex items-center gap-1.5"
+                >
+                  <Check className="w-4 h-4" />
+                  <span>اعتماد وحفظ التقييم الشهري</span>
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

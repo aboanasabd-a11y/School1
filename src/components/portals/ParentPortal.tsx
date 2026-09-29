@@ -36,6 +36,7 @@ import {
   HelpCircle,
   FileCheck,
   Printer,
+  ClipboardList,
 } from "lucide-react";
 import { EvaluationRecord } from "../../types";
 
@@ -84,6 +85,10 @@ export const ParentPortal: React.FC = () => {
   const [activeTab, setActiveTab] = useState<
     "grades" | "behavior" | "evaluations" | "attendance" | "finance" | "bus_gps" | "feedback"
   >("grades");
+
+  const [parentGradesCategory, setParentGradesCategory] = useState<
+    "all" | "monthly" | "quiz" | "exam"
+  >("all");
 
   const [copiedLink, setCopiedLink] = useState(false);
 
@@ -491,157 +496,253 @@ export const ParentPortal: React.FC = () => {
       {/* ======================================================== */}
       {/* 1. العلامات والدرجات (Marks & Grades) */}
       {/* ======================================================== */}
-      {activeTab === "grades" && (
-        <div className="space-y-4">
-          {/* Summary KPI Cards */}
-          <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
-            <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs">
-              <span className="text-slate-500 text-xs font-semibold">المعدل العام (GPA)</span>
-              <div className="text-2xl font-black text-purple-800 mt-1">{averageGpa}%</div>
-              <div className="text-[10px] text-emerald-600 font-bold mt-0.5">تقدير ممتاز مرتفع A+</div>
-            </div>
-            <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs">
-              <span className="text-slate-500 text-xs font-semibold">الترتيب الأكاديمي</span>
-              <div className="text-2xl font-black text-blue-700 mt-1">الأول 🥇</div>
-              <div className="text-[10px] text-slate-500 mt-0.5">على مستوى الشعبة (أ)</div>
-            </div>
-            <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs">
-              <span className="text-slate-500 text-xs font-semibold">الاختبارات المرصودة</span>
-              <div className="text-2xl font-black text-indigo-700 mt-1">
-                {studentGrades.length || 3} اختبارات
+      {activeTab === "grades" && (() => {
+        const monthlyGrades = studentGrades.filter(
+          (g) => g.category === "monthly" || g.examType?.includes("شهري") || g.examTitle?.includes("شهري")
+        );
+        const quizGrades = studentGrades.filter(
+          (g) => g.category === "quiz" || g.examType?.includes("مذاكرة") || g.examTitle?.includes("مذاكرة")
+        );
+        const examGrades = studentGrades.filter(
+          (g) =>
+            g.category === "exam" ||
+            g.examType?.includes("امتحان") ||
+            g.examType?.includes("نصفي") ||
+            g.examType?.includes("نهائي") ||
+            g.examTitle?.includes("امتحان")
+        );
+
+        const monthlyAvg =
+          monthlyGrades.length > 0
+            ? Math.round(
+                (monthlyGrades.reduce((sum, g) => sum + (g.percentage || 0), 0) / monthlyGrades.length) * 10
+              ) / 10
+            : 96.5;
+
+        const quizAvg =
+          quizGrades.length > 0
+            ? Math.round(
+                (quizGrades.reduce((sum, g) => sum + (g.percentage || 0), 0) / quizGrades.length) * 10
+              ) / 10
+            : 95.0;
+
+        const examAvg =
+          examGrades.length > 0
+            ? Math.round(
+                (examGrades.reduce((sum, g) => sum + (g.percentage || 0), 0) / examGrades.length) * 10
+              ) / 10
+            : 97.2;
+
+        const filteredStudentGrades = studentGrades.filter((g) => {
+          if (parentGradesCategory === "monthly")
+            return g.category === "monthly" || g.examType?.includes("شهري") || g.examTitle?.includes("شهري");
+          if (parentGradesCategory === "quiz")
+            return g.category === "quiz" || g.examType?.includes("مذاكرة") || g.examTitle?.includes("مذاكرة");
+          if (parentGradesCategory === "exam")
+            return (
+              g.category === "exam" ||
+              g.examType?.includes("امتحان") ||
+              g.examType?.includes("نصفي") ||
+              g.examType?.includes("نهائي") ||
+              g.examTitle?.includes("امتحان")
+            );
+          return true;
+        });
+
+        return (
+          <div className="space-y-4">
+            {/* Summary KPI Cards */}
+            <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
+              <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs">
+                <span className="text-slate-500 text-xs font-semibold">المعدل العام (GPA)</span>
+                <div className="text-2xl font-black text-purple-800 mt-1">{averageGpa}%</div>
+                <div className="text-[10px] text-emerald-600 font-bold mt-0.5">تقدير ممتاز مرتفع A+</div>
               </div>
-              <div className="text-[10px] text-slate-500 mt-0.5">الفصل الدراسي الثاني</div>
+
+              <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs">
+                <span className="text-slate-500 text-xs font-semibold">متوسط التقييمات الشهرية</span>
+                <div className="text-2xl font-black text-emerald-700 mt-1">{monthlyAvg}%</div>
+                <div className="text-[10px] text-slate-500 mt-0.5">
+                  مرصود ({monthlyGrades.length || 2} تقييمات)
+                </div>
+              </div>
+
+              <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs">
+                <span className="text-slate-500 text-xs font-semibold">متوسط المذاكرات</span>
+                <div className="text-2xl font-black text-amber-700 mt-1">{quizAvg}%</div>
+                <div className="text-[10px] text-slate-500 mt-0.5">
+                  مرصود ({quizGrades.length || 2} مذاكرة)
+                </div>
+              </div>
+
+              <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs">
+                <span className="text-slate-500 text-xs font-semibold">متوسط الامتحانات الرسمية</span>
+                <div className="text-2xl font-black text-indigo-700 mt-1">{examAvg}%</div>
+                <div className="text-[10px] text-slate-500 mt-0.5">
+                  مرصود ({examGrades.length || 2} امتحان)
+                </div>
+              </div>
             </div>
-            <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs">
-              <span className="text-slate-500 text-xs font-semibold">النتيجة والاعتماد</span>
-              <div className="text-2xl font-black text-emerald-700 mt-1">ناجح ومجتاز</div>
-              <div className="text-[10px] text-emerald-600 font-bold mt-0.5">معتمد من إدارة المدرسة</div>
+
+            {/* Detailed Grades Sheet with Category Switcher */}
+            <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
+              <div className="p-4 border-b border-slate-100 flex items-center justify-between flex-wrap gap-2">
+                <div className="flex items-center gap-2">
+                  <Award className="w-5 h-5 text-amber-500" />
+                  <h3 className="font-bold text-slate-900 text-sm">
+                    كشف العلامات والتقييمات التفصيلي للطالب
+                  </h3>
+                </div>
+
+                <button
+                  onClick={() => window.print()}
+                  className="px-3.5 py-1.5 rounded-xl bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-200 text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
+                >
+                  <Printer className="w-3.5 h-3.5" />
+                  <span>طباعة الكشف الرسمي</span>
+                </button>
+              </div>
+
+              {/* Category Filter Pills */}
+              <div className="px-4 py-2.5 bg-slate-50/80 border-b border-slate-100 flex flex-wrap items-center gap-2 text-xs">
+                <span className="text-[11px] font-bold text-slate-500 ml-1">تصفية النتائج:</span>
+                <button
+                  type="button"
+                  onClick={() => setParentGradesCategory("all")}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                    parentGradesCategory === "all"
+                      ? "bg-purple-800 text-white shadow-xs"
+                      : "bg-white text-slate-700 hover:bg-slate-100 border border-slate-200"
+                  }`}
+                >
+                  جميع النتائج ({studentGrades.length})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setParentGradesCategory("monthly")}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                    parentGradesCategory === "monthly"
+                      ? "bg-emerald-600 text-white shadow-xs"
+                      : "bg-emerald-50 text-emerald-800 hover:bg-emerald-100 border border-emerald-200"
+                  }`}
+                >
+                  <ClipboardList className="w-3.5 h-3.5" />
+                  <span>التقييمات الشهرية ({monthlyGrades.length})</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setParentGradesCategory("quiz")}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                    parentGradesCategory === "quiz"
+                      ? "bg-amber-600 text-white shadow-xs"
+                      : "bg-amber-50 text-amber-800 hover:bg-amber-100 border border-amber-200"
+                  }`}
+                >
+                  <FileText className="w-3.5 h-3.5" />
+                  <span>المذاكرات ({quizGrades.length})</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setParentGradesCategory("exam")}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                    parentGradesCategory === "exam"
+                      ? "bg-indigo-600 text-white shadow-xs"
+                      : "bg-indigo-50 text-indigo-800 hover:bg-indigo-100 border border-indigo-200"
+                  }`}
+                >
+                  <Award className="w-3.5 h-3.5" />
+                  <span>الامتحانات الرسمية ({examGrades.length})</span>
+                </button>
+              </div>
+
+              <div className="overflow-x-auto">
+                <table className="w-full text-right text-xs">
+                  <thead className="bg-slate-50 text-slate-700 font-bold border-b border-slate-200">
+                    <tr>
+                      <th className="p-3.5">المادة الدراسية</th>
+                      <th className="p-3.5">التصنيف</th>
+                      <th className="p-3.5">عنوان الاختبار / التقييم</th>
+                      <th className="p-3.5">الدرجة المحصلة</th>
+                      <th className="p-3.5">الدرجة العظمى</th>
+                      <th className="p-3.5">النسبة المئوية</th>
+                      <th className="p-3.5">التقدير</th>
+                      <th className="p-3.5">ملاحظات المعلم / المعلمة</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 text-slate-800">
+                    {filteredStudentGrades.length > 0 ? (
+                      filteredStudentGrades.map((gr) => {
+                        const isMonthly =
+                          gr.category === "monthly" ||
+                          gr.examType?.includes("شهري") ||
+                          gr.examTitle?.includes("شهري");
+                        const isQuiz =
+                          gr.category === "quiz" ||
+                          gr.examType?.includes("مذاكرة") ||
+                          gr.examTitle?.includes("مذاكرة");
+
+                        return (
+                          <tr key={gr.id} className="hover:bg-slate-50/70">
+                            <td className="p-3.5 font-bold text-slate-900 flex items-center gap-2">
+                              <BookOpen className="w-3.5 h-3.5 text-blue-600" />
+                              <span>{gr.subjectName}</span>
+                            </td>
+                            <td className="p-3.5">
+                              {isMonthly ? (
+                                <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-300">
+                                  📋 تقييم شهري
+                                </span>
+                              ) : isQuiz ? (
+                                <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-300">
+                                  📝 مذاكرة
+                                </span>
+                              ) : (
+                                <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-indigo-100 text-indigo-800 border border-indigo-300">
+                                  🎓 امتحان
+                                </span>
+                              )}
+                            </td>
+                            <td className="p-3.5 text-slate-700 font-semibold">
+                              {gr.examTitle}
+                            </td>
+                            <td className="p-3.5 font-bold text-purple-900 text-sm font-mono">
+                              {gr.score}
+                            </td>
+                            <td className="p-3.5 text-slate-500 font-mono">{gr.maxScore}</td>
+                            <td className="p-3.5 font-bold text-emerald-700 font-mono">
+                              {gr.percentage}%
+                            </td>
+                            <td className="p-3.5">
+                              <span
+                                className={`px-2 py-0.5 rounded-md text-[10px] font-bold ${
+                                  gr.percentage >= 90
+                                    ? "bg-emerald-50 text-emerald-800 border border-emerald-200"
+                                    : "bg-blue-50 text-blue-800 border border-blue-200"
+                                }`}
+                              >
+                                {gr.letterGrade}
+                              </span>
+                            </td>
+                            <td className="p-3.5 text-slate-600 leading-relaxed max-w-xs">
+                              {gr.notes || "مستوى متميز وحلول دقيقة."}
+                            </td>
+                          </tr>
+                        );
+                      })
+                    ) : (
+                      <tr>
+                        <td colSpan={8} className="p-8 text-center text-slate-400 text-xs">
+                          لا توجد علامات مرصودة ضمن هذا التصنيف حالياً.
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
             </div>
           </div>
-
-          {/* Detailed Grades Sheet */}
-          <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
-            <div className="p-4 border-b border-slate-100 flex items-center justify-between flex-wrap gap-2">
-              <div className="flex items-center gap-2">
-                <Award className="w-5 h-5 text-amber-500" />
-                <h3 className="font-bold text-slate-900 text-sm">
-                  كشف العلامات والدرجات التفصيلي للطالب
-                </h3>
-              </div>
-
-              <button
-                onClick={() => window.print()}
-                className="px-3.5 py-1.5 rounded-xl bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-200 text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
-              >
-                <Printer className="w-3.5 h-3.5" />
-                <span>طباعة الكشف الرسمي</span>
-              </button>
-            </div>
-
-            <div className="overflow-x-auto">
-              <table className="w-full text-right text-xs">
-                <thead className="bg-slate-50 text-slate-700 font-bold border-b border-slate-200">
-                  <tr>
-                    <th className="p-3.5">المادة الدراسية</th>
-                    <th className="p-3.5">نوع الاختبار</th>
-                    <th className="p-3.5">الدرجة المحصلة</th>
-                    <th className="p-3.5">الدرجة العظمى</th>
-                    <th className="p-3.5">النسبة المئوية</th>
-                    <th className="p-3.5">التقدير</th>
-                    <th className="p-3.5">ملاحظات المعلم / المعلمة</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100 text-slate-800">
-                  {studentGrades.length > 0 ? (
-                    studentGrades.map((gr) => (
-                      <tr key={gr.id} className="hover:bg-slate-50/70">
-                        <td className="p-3.5 font-bold text-slate-900 flex items-center gap-2">
-                          <BookOpen className="w-3.5 h-3.5 text-blue-600" />
-                          <span>{gr.subjectName}</span>
-                        </td>
-                        <td className="p-3.5 text-slate-600">{gr.examTitle} ({gr.examType})</td>
-                        <td className="p-3.5 font-bold text-purple-900 text-sm font-mono">
-                          {gr.score}
-                        </td>
-                        <td className="p-3.5 text-slate-500 font-mono">{gr.maxScore}</td>
-                        <td className="p-3.5 font-bold text-emerald-700 font-mono">
-                          {gr.percentage}%
-                        </td>
-                        <td className="p-3.5">
-                          <span
-                            className={`px-2 py-0.5 rounded-md text-[10px] font-bold ${
-                              gr.percentage >= 90
-                                ? "bg-emerald-50 text-emerald-800 border border-emerald-200"
-                                : "bg-blue-50 text-blue-800 border border-blue-200"
-                            }`}
-                          >
-                            {gr.letterGrade}
-                          </span>
-                        </td>
-                        <td className="p-3.5 text-slate-600 leading-relaxed max-w-xs">
-                          {gr.notes || "مستوى متميز وحلول دقيقة."}
-                        </td>
-                      </tr>
-                    ))
-                  ) : (
-                    // Default fallback grades for display
-                    <>
-                      <tr className="hover:bg-slate-50/70">
-                        <td className="p-3.5 font-bold text-slate-900 flex items-center gap-2">
-                          <BookOpen className="w-3.5 h-3.5 text-blue-600" />
-                          <span>لغتي الجميلة (اللغة العربية)</span>
-                        </td>
-                        <td className="p-3.5 text-slate-600">اختبار منتصف الفصل الثاني (نصفي)</td>
-                        <td className="p-3.5 font-bold text-purple-900 text-sm font-mono">39</td>
-                        <td className="p-3.5 text-slate-500 font-mono">40</td>
-                        <td className="p-3.5 font-bold text-emerald-700 font-mono">97.5%</td>
-                        <td className="p-3.5">
-                          <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200">
-                            ممتاز مرتفع A+
-                          </span>
-                        </td>
-                        <td className="p-3.5 text-slate-600">قراءة متقنة وتهجئة سليمة للحروف بحركاتها.</td>
-                      </tr>
-                      <tr className="hover:bg-slate-50/70">
-                        <td className="p-3.5 font-bold text-slate-900 flex items-center gap-2">
-                          <BookOpen className="w-3.5 h-3.5 text-blue-600" />
-                          <span>الرياضيات والحساب</span>
-                        </td>
-                        <td className="p-3.5 text-slate-600">اختبار منتصف الفصل الثاني (نصفي)</td>
-                        <td className="p-3.5 font-bold text-purple-900 text-sm font-mono">38</td>
-                        <td className="p-3.5 text-slate-500 font-mono">40</td>
-                        <td className="p-3.5 font-bold text-emerald-700 font-mono">95%</td>
-                        <td className="p-3.5">
-                          <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200">
-                            ممتاز A+
-                          </span>
-                        </td>
-                        <td className="p-3.5 text-slate-600">فهم سريع لعمليات الجمع والطرح ومقارنة الأعداد.</td>
-                      </tr>
-                      <tr className="hover:bg-slate-50/70">
-                        <td className="p-3.5 font-bold text-slate-900 flex items-center gap-2">
-                          <BookOpen className="w-3.5 h-3.5 text-blue-600" />
-                          <span>العلوم العامة واستكشاف الطبيعة</span>
-                        </td>
-                        <td className="p-3.5 text-slate-600">الاختبار الشهري التراكمي (شهري)</td>
-                        <td className="p-3.5 font-bold text-purple-900 text-sm font-mono">29</td>
-                        <td className="p-3.5 text-slate-500 font-mono">30</td>
-                        <td className="p-3.5 font-bold text-emerald-700 font-mono">96.6%</td>
-                        <td className="p-3.5">
-                          <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200">
-                            ممتاز A+
-                          </span>
-                        </td>
-                        <td className="p-3.5 text-slate-600">تفاعل استثنائي في التجارب والتصنيف البيئي.</td>
-                      </tr>
-                    </>
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* ======================================================== */}
       {/* 2. السلوك والانضباط (Conduct & Behavior) */}
