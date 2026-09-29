@@ -13,6 +13,7 @@ import {
   Settings,
   X,
   Bus,
+  Library,
 } from "lucide-react";
 
 export type TabType = ActiveModule;
@@ -63,6 +64,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
       icon: BookOpen,
     },
     {
+      id: "subjects" as TabType,
+      label: "المناهج والمواد الدراسية",
+      icon: Library,
+    },
+    {
       id: "students" as TabType,
       label: "الطلاب",
       icon: Users,
@@ -71,6 +77,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
       id: "staff" as TabType,
       label: "الكادر التدريسي",
       icon: GraduationCap,
+    },
+    {
+      id: "portal_teacher" as TabType,
+      label: "بوابة المعلم (دخول الكادر)",
+      icon: BookOpen,
     },
     {
       id: "timetable" as TabType,

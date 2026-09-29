@@ -1,6 +1,7 @@
 export type ActiveModule =
   | 'dashboard'
   | 'school'
+  | 'subjects'
   | 'students'
   | 'staff'
   | 'exams'
@@ -84,6 +85,8 @@ export interface Subject {
   teacherId: string;
   teacherName?: string;
   iconName?: string;
+  description?: string;
+  color?: string;
 }
 
 export interface StudentDocument {
@@ -251,6 +254,8 @@ export interface StaffMember {
   teachingSubjects: string[]; // Subject IDs or Names
   assignedSections: string[]; // Section IDs or Names
   assignedGrades?: string[]; // Grade IDs or Names
+  username?: string; // اسم المستخدم المخصص للدخول
+  password?: string; // كلمة المرور للدخول
   salary: number;
   status: 'active' | 'on_leave' | 'resigned';
   photo: string;

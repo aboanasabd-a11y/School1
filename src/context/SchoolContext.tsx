@@ -514,14 +514,43 @@ export const SchoolProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   };
 
   const loginTeacherWithCredentials = (
-    name: string,
-    phoneOrNumber: string
+    usernameOrName: string,
+    passwordOrNumber: string
   ): { success: boolean; message: string; teacher?: StaffMember } => {
-    const cleanName = name.trim().toLowerCase();
-    const cleanNumber = phoneOrNumber.trim().toLowerCase();
-    const cleanDigits = phoneOrNumber.replace(/[^0-9]/g, "");
+    const cleanUser = usernameOrName.trim().toLowerCase();
+    const cleanPass = passwordOrNumber.trim();
+
+    if (!cleanUser) {
+      return { success: false, message: "يرجى إدخال اسم المستخدم أو البريد الإلكتروني" };
+    }
 
     const found = staff.find((member) => {
+      // 1. Direct match on username and password
+      if (member.username && member.username.toLowerCase() === cleanUser) {
+        if (!member.password || member.password === cleanPass) {
+          return true;
+        }
+      }
+
+      // 2. Direct match on employee number as username
+      if (member.employeeNumber && member.employeeNumber.toLowerCase() === cleanUser) {
+        if (!member.password || member.password === cleanPass) {
+          return true;
+        }
+      }
+
+      // 3. Email match with password
+      if (member.email && member.email.toLowerCase() === cleanUser) {
+        if (!member.password || member.password === cleanPass) {
+          return true;
+        }
+      }
+
+      // 4. Fallback: match by full name and employeeNumber / phone / password
+      const cleanName = cleanUser;
+      const cleanNumber = cleanPass.toLowerCase();
+      const cleanDigits = cleanPass.replace(/[^0-9]/g, "");
+
       const matchName =
         !cleanName ||
         member.fullName.toLowerCase().includes(cleanName) ||
@@ -533,7 +562,8 @@ export const SchoolProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         (member.nationalId && member.nationalId === cleanNumber) ||
         (member.id && member.id.toLowerCase() === cleanNumber) ||
         (cleanDigits.length >= 4 && memberDigits.includes(cleanDigits)) ||
-        (member.phone && member.phone.includes(phoneOrNumber.trim()));
+        (member.phone && member.phone.includes(cleanPass)) ||
+        (member.password && member.password === cleanPass);
 
       return matchName && matchNumber;
     });
@@ -545,7 +575,7 @@ export const SchoolProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
     return {
       success: false,
-      message: "لم يتم العثور على معلم يطابق الاسم والرقم المدخل. يرجى التحقق من الاسم والرقم الوظيفي أو رقم الجوال.",
+      message: "اسم المستخدم أو كلمة المرور غير صحيحة. يرجى التحقق من البيانات والمحاولة مجدداً.",
     };
   };
 
@@ -837,13 +867,24 @@ export const SchoolProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const addStaff = (memberData: Omit<StaffMember, "id" | "employeeNumber">) => {
     const newId = `staff-${Date.now()}`;
     const newEmpNo = `EMP-${Math.floor(2000 + Math.random() * 8000)}`;
+    const autoUsername =
+      memberData.username?.trim() ||
+      `teacher.${newEmpNo.toLowerCase().replace(/[^a-z0-9]/g, "")}`;
+    const autoPassword = memberData.password?.trim() || "123456";
+
     const newMember: StaffMember = {
       ...memberData,
       id: newId,
       employeeNumber: newEmpNo,
+      username: autoUsername,
+      password: autoPassword,
     };
     setStaff((prev) => [newMember, ...prev]);
-    addAuditLog("إضافة موظف/معلم جديد", "الكادر التعليمي", `تم تعيين ${newMember.fullName} - ${newMember.specialization}`);
+    addAuditLog(
+      "إضافة موظف/معلم جديد",
+      "الكادر التعليمي",
+      `تم تعيين وتكليف ${newMember.fullName} - ${newMember.specialization} (اسم المستخدم: ${newMember.username})`
+    );
   };
 
   const updateStaff = (id: string, updatedData: Partial<StaffMember>) => {

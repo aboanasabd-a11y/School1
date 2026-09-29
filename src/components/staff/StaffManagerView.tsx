@@ -24,6 +24,12 @@ import {
   School,
   CheckSquare,
   Square,
+  Lock,
+  Key,
+  User,
+  Eye,
+  EyeOff,
+  ShieldCheck,
 } from "lucide-react";
 
 export const StaffManagerView: React.FC = () => {
@@ -32,6 +38,7 @@ export const StaffManagerView: React.FC = () => {
     grades,
     sections,
     subjects,
+    addSubject,
     addStaff,
     updateStaff,
     deleteStaff,
@@ -46,6 +53,7 @@ export const StaffManagerView: React.FC = () => {
 
   const [showModal, setShowModal] = useState(false);
   const [editingStaffId, setEditingStaffId] = useState<string | null>(null);
+  const [showPassword, setShowPassword] = useState(false);
 
   // Teacher Link Share Modal state
   const [shareTeacherModal, setShareTeacherModal] = useState<StaffMember | null>(null);
@@ -65,6 +73,8 @@ export const StaffManagerView: React.FC = () => {
     teachingSubjects: string[];
     assignedSections: string[];
     assignedGrades: string[];
+    username: string;
+    password: string;
     photo: string;
     bio: string;
     emergencyPhone: string;
@@ -81,6 +91,8 @@ export const StaffManagerView: React.FC = () => {
     teachingSubjects: [subjects[0]?.name || "الرياضيات والحساب"],
     assignedSections: [sections[0]?.name || "شعبة (أ) - الأول الابتدائي"],
     assignedGrades: [grades[0]?.id || "grade-1"],
+    username: "",
+    password: "123",
     photo: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&h=150&fit=crop",
     bio: "معلم متميز ذو خبرة تربوية تزيد عن 8 سنوات",
     emergencyPhone: "0509998877",
@@ -134,6 +146,8 @@ export const StaffManagerView: React.FC = () => {
 
   const handleOpenAdd = () => {
     setEditingStaffId(null);
+    setShowPassword(false);
+    const randomSuffix = Math.floor(100 + Math.random() * 900);
     setStaffForm({
       fullName: "",
       nationalId: "",
@@ -147,6 +161,8 @@ export const StaffManagerView: React.FC = () => {
       teachingSubjects: [allAvailableSubjects[0]],
       assignedSections: [sections[0]?.name || "شعبة (أ) - الأول الابتدائي"],
       assignedGrades: [grades[0]?.id || "grade-1"],
+      username: `teacher.${randomSuffix}`,
+      password: "123",
       photo: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&h=150&fit=crop",
       bio: "كادر تعليمي معتمد ومؤهل",
       emergencyPhone: "0509998877",
@@ -157,6 +173,7 @@ export const StaffManagerView: React.FC = () => {
 
   const handleOpenEdit = (member: StaffMember) => {
     setEditingStaffId(member.id);
+    setShowPassword(false);
     setStaffForm({
       fullName: member.fullName,
       nationalId: member.nationalId,
@@ -170,6 +187,8 @@ export const StaffManagerView: React.FC = () => {
       teachingSubjects: member.teachingSubjects || [],
       assignedSections: member.assignedSections || [],
       assignedGrades: member.assignedGrades || [],
+      username: member.username || `teacher.${member.employeeNumber.toLowerCase().replace(/[^a-z0-9]/g, "")}`,
+      password: member.password || "123",
       photo: member.photo,
       bio: member.bio,
       emergencyPhone: member.emergencyPhone,
@@ -204,6 +223,22 @@ export const StaffManagerView: React.FC = () => {
         ...prev,
         teachingSubjects: [...prev.teachingSubjects, trimmed],
       }));
+    }
+    // Also officially register it as a school subject if not existing
+    if (!subjects.some((s) => s.name === trimmed)) {
+      const targetGradeId = staffForm.assignedGrades[0] || grades[0]?.id || "grade-1";
+      const targetGrade = grades.find((g) => g.id === targetGradeId);
+      addSubject({
+        name: trimmed,
+        code: `SUB-${Math.floor(100 + Math.random() * 900)}`,
+        gradeId: targetGradeId,
+        gradeName: targetGrade?.name || "الصف الدراسي",
+        creditHours: 4,
+        maxScore: 100,
+        passScore: 50,
+        teacherId: editingStaffId || "",
+        teacherName: staffForm.fullName,
+      });
     }
     setCustomSubjectInput("");
   };
@@ -289,7 +324,11 @@ export const StaffManagerView: React.FC = () => {
 
   const copyTeacherCredentials = () => {
     if (!shareTeacherModal) return;
-    const text = `السلام عليكم ورحمة الله، أستاذ/ة: ${shareTeacherModal.fullName}\nرابط بوابتك التعليمية الخاصة بنظام المدرسة:\n🔗 ${teacherDirectUrl}\n\nبيانات الدخول المطلوبة:\n- اسم المعلم: ${shareTeacherModal.fullName}\n- رقم المعلم الوظيفي: ${shareTeacherModal.employeeNumber}\n- رقم الجوال المسجل: ${shareTeacherModal.phone}\n\nالمواد المكلف بها: ${(shareTeacherModal.teachingSubjects || []).join("، ")}\nالصفوف والشعب المسندة: ${(shareTeacherModal.assignedSections || []).join("، ")}`;
+    const username =
+      shareTeacherModal.username ||
+      `teacher.${shareTeacherModal.employeeNumber.toLowerCase().replace(/[^a-z0-9]/g, "")}`;
+    const password = shareTeacherModal.password || "123";
+    const text = `السلام عليكم ورحمة الله، أستاذ/ة: ${shareTeacherModal.fullName}\nرابط بوابتك التعليمية الخاصة بنظام المدرسة:\n🔗 ${teacherDirectUrl}\n\nبيانات تسجيل الدخول الرسمية:\n- اسم المستخدم: ${username}\n- كلمة المرور: ${password}\n- رقم المعلم الوظيفي: ${shareTeacherModal.employeeNumber}\n\nالمواد المكلف بها: ${(shareTeacherModal.teachingSubjects || []).join("، ")}\nالصفوف والشعب المسندة: ${(shareTeacherModal.assignedSections || []).join("، ")}`;
     navigator.clipboard.writeText(text);
     setCopiedLink(true);
     setTimeout(() => setCopiedLink(false), 2500);
@@ -297,11 +336,15 @@ export const StaffManagerView: React.FC = () => {
 
   const shareViaWhatsApp = () => {
     if (!shareTeacherModal) return;
+    const username =
+      shareTeacherModal.username ||
+      `teacher.${shareTeacherModal.employeeNumber.toLowerCase().replace(/[^a-z0-9]/g, "")}`;
+    const password = shareTeacherModal.password || "123";
     const phone = (shareTeacherModal.phone || "").replace(/[^0-9]/g, "");
     const cleanPhone = phone.startsWith("966")
       ? phone
       : "966" + phone.replace(/^0+/, "");
-    const msg = `السلام عليكم أستاذ/ة: *${shareTeacherModal.fullName}*\nرابط بوابتك التعليمية المباشرة:\n🔗 ${teacherDirectUrl}\n\nبيانات الدخول:\n- الاسم: ${shareTeacherModal.fullName}\n- رقم المعلم: ${shareTeacherModal.employeeNumber}\n\nستظهر لك في البوابة فقط المواد والصفوف الموكل بها.`;
+    const msg = `السلام عليكم أستاذ/ة: *${shareTeacherModal.fullName}*\nرابط بوابتك التعليمية المباشرة:\n🔗 ${teacherDirectUrl}\n\nبيانات تسجيل الدخول:\n- اسم المستخدم: *${username}*\n- كلمة المرور: *${password}*\n- الرقم الوظيفي: ${shareTeacherModal.employeeNumber}\n\nستظهر لك في البوابة فقط المواد والصفوف الموكل بها.`;
     const waUrl = `https://wa.me/${phone ? cleanPhone : ""}?text=${encodeURIComponent(msg)}`;
     window.open(waUrl, "_blank");
   };
@@ -484,6 +527,46 @@ export const StaffManagerView: React.FC = () => {
                     <span className="truncate max-w-[130px]">{member.email}</span>
                   </div>
                 </div>
+
+                {/* Login Credentials Badge (Username & Password) */}
+                {member.role === "teacher" && (
+                  <div className="pt-2 border-t border-slate-100 bg-indigo-50/70 p-2.5 rounded-xl border border-indigo-200 text-[11px] space-y-1.5">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-1.5 text-indigo-950 font-bold">
+                        <User className="w-3.5 h-3.5 text-indigo-600" />
+                        <span>اسم المستخدم:</span>
+                        <strong className="font-mono text-xs text-indigo-700 bg-white px-2 py-0.5 rounded-md border border-indigo-200">
+                          {member.username || `teacher.${member.employeeNumber.toLowerCase().replace(/[^a-z0-9]/g, "")}`}
+                        </strong>
+                      </div>
+                      <div className="flex items-center gap-1 text-[11px] text-slate-700 font-mono">
+                        <Key className="w-3.5 h-3.5 text-amber-500" />
+                        <span>كلمة السر:</span>
+                        <strong className="bg-white px-2 py-0.5 rounded-md border border-slate-200 text-slate-900 font-bold">
+                          {member.password || "123"}
+                        </strong>
+                      </div>
+                    </div>
+                    <div className="flex items-center justify-between pt-1 border-t border-indigo-100/80 text-[10px] text-indigo-800">
+                      <span className="flex items-center gap-1">
+                        <ShieldCheck className="w-3 h-3 text-emerald-600" />
+                        <span>يدخل للصفوف والمواد الموكل بها فقط</span>
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          applyDirectLinkAccess("teacher", member.id);
+                          setActiveModule("portal_teacher");
+                        }}
+                        className="text-indigo-700 hover:text-indigo-900 font-bold hover:underline cursor-pointer flex items-center gap-0.5"
+                        title="تجربة الدخول الفوري بحساب هذا المعلم"
+                      >
+                        <ExternalLink className="w-2.5 h-2.5" />
+                        <span>دخول كمعلم</span>
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -572,30 +655,38 @@ export const StaffManagerView: React.FC = () => {
               </div>
 
               {/* Login Credentials Box required by user prompt */}
-              <div className="p-4 rounded-2xl bg-amber-50/80 border border-amber-200 text-slate-800 space-y-2">
-                <div className="font-bold text-amber-900 flex items-center gap-1.5 text-xs">
-                  <Sparkles className="w-4 h-4 text-amber-600" />
-                  <span>البيانات المطلوبة لدخول المعلم واستعراض بياناته الموكل بها:</span>
+              <div className="p-4 rounded-2xl bg-indigo-50/80 border-2 border-indigo-200 text-slate-800 space-y-2.5">
+                <div className="font-bold text-indigo-950 flex items-center justify-between text-xs">
+                  <div className="flex items-center gap-1.5">
+                    <Sparkles className="w-4 h-4 text-amber-500" />
+                    <span>بيانات الدخول الرسمية وحساب المعلم للموقع:</span>
+                  </div>
+                  <span className="text-[10px] bg-white text-indigo-700 font-bold px-2 py-0.5 rounded-full border border-indigo-200">
+                    دخول محدد بالصفوف والمواد
+                  </span>
                 </div>
                 <div className="grid grid-cols-2 gap-2 text-[11px] pt-1">
-                  <div className="bg-white p-2.5 rounded-xl border border-amber-200">
-                    <span className="text-slate-500 block text-[10px]">1. اسم المعلم:</span>
-                    <strong className="text-slate-900 text-xs block mt-0.5">
-                      {shareTeacherModal.fullName}
+                  <div className="bg-white p-3 rounded-xl border border-indigo-200 shadow-2xs">
+                    <span className="text-slate-500 block text-[10px] font-bold">1. اسم المستخدم (Username):</span>
+                    <strong className="text-indigo-900 text-xs block mt-1 font-mono bg-indigo-50 px-2 py-1 rounded border border-indigo-100">
+                      {shareTeacherModal.username || `teacher.${shareTeacherModal.employeeNumber.toLowerCase().replace(/[^a-z0-9]/g, "")}`}
                     </strong>
                   </div>
-                  <div className="bg-white p-2.5 rounded-xl border border-amber-200">
-                    <span className="text-slate-500 block text-[10px]">
-                      2. رقم المعلم أو الجوال:
+                  <div className="bg-white p-3 rounded-xl border border-indigo-200 shadow-2xs">
+                    <span className="text-slate-500 block text-[10px] font-bold">
+                      2. كلمة المرور (Password):
                     </span>
-                    <strong className="text-slate-900 text-xs block mt-0.5 font-mono">
-                      {shareTeacherModal.employeeNumber} أو {shareTeacherModal.phone}
+                    <strong className="text-slate-900 text-xs block mt-1 font-mono bg-slate-50 px-2 py-1 rounded border border-slate-200">
+                      {shareTeacherModal.password || "123"}
                     </strong>
                   </div>
                 </div>
-                <p className="text-[10px] text-amber-800 leading-relaxed pt-1">
-                  * عند دخول المعلم باسمه ورقمه، ستظهر له فقط المواد والصفوف المحددة له أدناه دون غيرها.
-                </p>
+                <div className="flex items-center gap-1.5 text-[10.5px] text-indigo-900 font-medium bg-white/70 p-2 rounded-lg border border-indigo-100">
+                  <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0" />
+                  <span>
+                    عند دخول المعلم باسم المستخدم وكلمة المرور هذه، ستظهر له حصراً الصفوف والمواد المكلف بها أدناه.
+                  </span>
+                </div>
               </div>
 
               {/* Assigned Scope Summary */}
@@ -926,6 +1017,116 @@ export const StaffManagerView: React.FC = () => {
                   </div>
                 </div>
               )}
+
+              {/* Core Feature Request: 3. USERNAME AND PASSWORD (بيانات تسجيل دخول المعلم) */}
+              <div className="p-4 rounded-2xl bg-indigo-50/80 border-2 border-indigo-200 space-y-3 shadow-2xs">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="w-7 h-7 rounded-lg bg-indigo-600 text-white flex items-center justify-center shadow-xs">
+                      <Lock className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <label className="font-black text-indigo-950 text-xs block">
+                        بيانات تسجيل الدخول وحساب المعلم للموقع *
+                      </label>
+                      <span className="text-[10.5px] text-indigo-700">
+                        اكتب اسم المستخدم وكلمة المرور التي سيستخدمها المعلم للدخول
+                      </span>
+                    </div>
+                  </div>
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-indigo-100 text-indigo-800 border border-indigo-200">
+                    دخول فوري معتمد
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                  {/* Username Field */}
+                  <div>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="text-slate-800 font-bold text-[11px] flex items-center gap-1">
+                        <User className="w-3.5 h-3.5 text-indigo-600" />
+                        <span>اسم المستخدم للدخول (Username) *</span>
+                      </label>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const clean = staffForm.fullName
+                            ? staffForm.fullName.replace(/^أ\.\s*/, "").split(" ")[0].trim()
+                            : "teacher";
+                          const random = Math.floor(100 + Math.random() * 900);
+                          setStaffForm({
+                            ...staffForm,
+                            username: `teacher.${clean.toLowerCase().replace(/[^a-z0-9]/g, "") || "user"}${random}`,
+                          });
+                        }}
+                        className="text-[10px] text-indigo-600 hover:text-indigo-800 font-bold hover:underline cursor-pointer"
+                      >
+                        توليد تلقائي
+                      </button>
+                    </div>
+                    <input
+                      type="text"
+                      required
+                      placeholder="مثال: teacher.fatima أو ahmad2026"
+                      value={staffForm.username}
+                      onChange={(e) => setStaffForm({ ...staffForm, username: e.target.value })}
+                      className="w-full p-2.5 rounded-xl border border-indigo-200 bg-white font-mono text-xs font-bold text-slate-800 focus:ring-2 focus:ring-indigo-500"
+                    />
+                  </div>
+
+                  {/* Password Field */}
+                  <div>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="text-slate-800 font-bold text-[11px] flex items-center gap-1">
+                        <Key className="w-3.5 h-3.5 text-amber-500" />
+                        <span>كلمة المرور (Password) *</span>
+                      </label>
+                      <div className="flex items-center gap-1 text-[10px]">
+                        <button
+                          type="button"
+                          onClick={() => setStaffForm({ ...staffForm, password: "123" })}
+                          className="text-slate-500 hover:text-indigo-700 font-mono font-bold hover:underline cursor-pointer"
+                        >
+                          123
+                        </button>
+                        <span className="text-slate-300">|</span>
+                        <button
+                          type="button"
+                          onClick={() => setStaffForm({ ...staffForm, password: "123456" })}
+                          className="text-slate-500 hover:text-indigo-700 font-mono font-bold hover:underline cursor-pointer"
+                        >
+                          123456
+                        </button>
+                      </div>
+                    </div>
+                    <div className="relative">
+                      <input
+                        type={showPassword ? "text" : "password"}
+                        required
+                        placeholder="أدخل كلمة المرور"
+                        value={staffForm.password}
+                        onChange={(e) => setStaffForm({ ...staffForm, password: e.target.value })}
+                        className="w-full p-2.5 pr-3 pl-9 rounded-xl border border-indigo-200 bg-white font-mono text-xs font-bold text-slate-800 focus:ring-2 focus:ring-indigo-500"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword(!showPassword)}
+                        className="absolute left-2.5 top-2.5 text-slate-400 hover:text-indigo-600 cursor-pointer"
+                        title={showPassword ? "إخفاء كلمة المرور" : "إظهار كلمة المرور"}
+                      >
+                        {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2 p-2 bg-white/80 rounded-xl border border-indigo-100 text-[10.5px] text-indigo-900 font-medium">
+                  <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0" />
+                  <span>
+                    يستطيع المعلم الدخول للموقع باسم المستخدم وكلمة المرور هذه، وسيُسمح له بالدخول فقط للصفوف والمواد الموكل بها.
+                  </span>
+                </div>
+              </div>
 
               {/* Qualification */}
               <div>

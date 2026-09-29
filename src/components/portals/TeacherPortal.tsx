@@ -33,6 +33,11 @@ import {
   CheckCircle,
   X,
   Printer,
+  User,
+  Lock,
+  Key,
+  Eye,
+  EyeOff,
 } from "lucide-react";
 
 export const TeacherPortal: React.FC = () => {
@@ -68,9 +73,10 @@ export const TeacherPortal: React.FC = () => {
     logoutDirectTeacher,
   } = useSchool();
 
-  // Teacher Login Form State (when teacher opens link and enters name and number)
-  const [loginNameInput, setLoginNameInput] = useState("");
-  const [loginNumberInput, setLoginNumberInput] = useState("");
+  // Teacher Login Form State (Username and Password)
+  const [loginUsernameInput, setLoginUsernameInput] = useState("");
+  const [loginPasswordInput, setLoginPasswordInput] = useState("");
+  const [showLoginPassword, setShowLoginPassword] = useState(false);
   const [loginError, setLoginError] = useState<string | null>(null);
   const [isLoggedOutManually, setIsLoggedOutManually] = useState(false);
 
@@ -85,7 +91,7 @@ export const TeacherPortal: React.FC = () => {
   const handleTeacherLoginSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setLoginError(null);
-    const result = loginTeacherWithCredentials(loginNameInput, loginNumberInput);
+    const result = loginTeacherWithCredentials(loginUsernameInput, loginPasswordInput);
     if (result.success) {
       setIsLoggedOutManually(false);
       setLoginError(null);
@@ -97,50 +103,67 @@ export const TeacherPortal: React.FC = () => {
   const handleLogout = () => {
     logoutDirectTeacher();
     setIsLoggedOutManually(true);
-    setLoginNameInput("");
-    setLoginNumberInput("");
+    setLoginUsernameInput("");
+    setLoginPasswordInput("");
   };
 
-  // If not authenticated or logged out, display dedicated Teacher Verification Screen
+  // If not authenticated or logged out, display dedicated Teacher Login Screen
   if (!currentTeacherStaff) {
     return (
-      <div className="max-w-lg mx-auto my-10 bg-white p-6 sm:p-8 rounded-3xl shadow-xl border border-slate-200 animate-in fade-in zoom-in-95 duration-150">
-        <div className="w-16 h-16 rounded-2xl bg-indigo-50 border border-indigo-200 flex items-center justify-center text-indigo-700 mx-auto mb-4 shadow-xs">
+      <div className="max-w-xl mx-auto my-8 bg-white p-6 sm:p-8 rounded-3xl shadow-xl border border-slate-200 animate-in fade-in zoom-in-95 duration-150">
+        <div className="w-16 h-16 rounded-2xl bg-indigo-50 border border-indigo-200 flex items-center justify-center text-indigo-700 mx-auto mb-3 shadow-xs">
           <GraduationCap className="w-8 h-8" />
         </div>
 
         <h2 className="text-xl font-black text-center text-slate-900 mb-1">
-          بوابة الكادر التعليمي - الدخول الأكاديمي
+          بوابة الكادر التعليمي - تسجيل الدخول الأكاديمي
         </h2>
-        <p className="text-xs text-center text-slate-500 mb-6 leading-relaxed">
-          فضلاً أدخل اسمك ورقمك الوظيفي أو رقم الجوال المعتمد؛ ستظهر لك في البوابة فقط المواد والصفوف الموكل بها.
+        <p className="text-xs text-center text-slate-500 mb-6 leading-relaxed max-w-md mx-auto">
+          أدخل اسم المستخدم وكلمة المرور المحددة لك للدخول إلى بوابتك؛ ستظهر لك في البوابة حصراً الصفوف والمواد الموكل بها.
         </p>
 
         <form onSubmit={handleTeacherLoginSubmit} className="space-y-4 text-xs">
           <div>
-            <label className="block text-slate-700 font-bold mb-1">اسم المعلم *</label>
-            <input
-              type="text"
-              required
-              placeholder="مثال: أ. فاطمة الزهراء الشامي"
-              value={loginNameInput}
-              onChange={(e) => setLoginNameInput(e.target.value)}
-              className="w-full p-3 rounded-xl border border-slate-200 text-xs focus:ring-2 focus:ring-indigo-500 focus:outline-hidden"
-            />
-          </div>
-
-          <div>
-            <label className="block text-slate-700 font-bold mb-1">
-              رقم المعلم الوظيفي أو رقم الجوال *
+            <label className="block text-slate-800 font-bold mb-1 flex items-center gap-1.5">
+              <User className="w-3.5 h-3.5 text-indigo-600" />
+              <span>اسم المستخدم (Username) أو البريد الإلكتروني *</span>
             </label>
             <input
               type="text"
               required
-              placeholder="مثال: EMP-2002 أو 0554567890"
-              value={loginNumberInput}
-              onChange={(e) => setLoginNumberInput(e.target.value)}
-              className="w-full p-3 rounded-xl border border-slate-200 font-mono text-xs focus:ring-2 focus:ring-indigo-500 focus:outline-hidden"
+              placeholder="مثال: fatima.shami أو teacher.fatima أو فاطمة"
+              value={loginUsernameInput}
+              onChange={(e) => setLoginUsernameInput(e.target.value)}
+              className="w-full p-3 rounded-xl border border-slate-300 font-mono text-xs focus:ring-2 focus:ring-indigo-500 focus:outline-hidden bg-slate-50/50"
             />
+          </div>
+
+          <div>
+            <label className="block text-slate-800 font-bold mb-1 flex items-center gap-1.5">
+              <Key className="w-3.5 h-3.5 text-amber-500" />
+              <span>كلمة المرور (Password) *</span>
+            </label>
+            <div className="relative">
+              <input
+                type={showLoginPassword ? "text" : "password"}
+                required
+                placeholder="أدخل كلمة المرور (مثال: 123)"
+                value={loginPasswordInput}
+                onChange={(e) => setLoginPasswordInput(e.target.value)}
+                className="w-full p-3 pr-3 pl-10 rounded-xl border border-slate-300 font-mono text-xs focus:ring-2 focus:ring-indigo-500 focus:outline-hidden bg-slate-50/50"
+              />
+              <button
+                type="button"
+                onClick={() => setShowLoginPassword(!showLoginPassword)}
+                className="absolute left-3 top-3 text-slate-400 hover:text-indigo-600 cursor-pointer"
+                title={showLoginPassword ? "إخفاء كلمة المرور" : "إظهار كلمة المرور"}
+              >
+                {showLoginPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+              </button>
+            </div>
+            <div className="flex items-center justify-between mt-1 text-[11px] text-slate-500">
+              <span>* يمكنك أيضاً الدخول باسمك الكامل ورقمك الوظيفي أو رقم الجوال</span>
+            </div>
           </div>
 
           {loginError && (
@@ -152,47 +175,67 @@ export const TeacherPortal: React.FC = () => {
 
           <button
             type="submit"
-            className="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold text-xs shadow-md transition-all cursor-pointer"
+            className="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold text-xs shadow-md transition-all cursor-pointer flex items-center justify-center gap-2"
           >
-            دخول واستعراض البيانات الموكل بها
+            <Lock className="w-4 h-4" />
+            <span>تسجيل الدخول والوصول للمواد والصفوف الموكل بها</span>
           </button>
         </form>
 
         {/* Quick Sample Teachers for One-Click Testing */}
         <div className="mt-8 pt-5 border-t border-slate-100">
-          <div className="text-[11px] font-bold text-slate-600 mb-2.5 flex items-center gap-1.5">
-            <Sparkles className="w-3.5 h-3.5 text-amber-500" />
-            <span>معلمون مسجلون في النظام (انقر للتجربة الفورية):</span>
+          <div className="text-[11px] font-bold text-slate-700 mb-2 flex items-center justify-between">
+            <div className="flex items-center gap-1.5">
+              <Sparkles className="w-3.5 h-3.5 text-amber-500" />
+              <span>معلمون مسجلون في النظام (انقر للتجربة والدخول الفوري):</span>
+            </div>
+            <span className="text-[10px] text-indigo-600 font-bold">تجربة الدخول الفوري</span>
           </div>
 
-          <div className="space-y-1.5">
+          <div className="space-y-2 max-h-60 overflow-y-auto p-1">
             {staff
               .filter((s) => s.role === "teacher")
-              .slice(0, 4)
-              .map((tch) => (
-                <button
-                  key={tch.id}
-                  type="button"
-                  onClick={() => {
-                    setLoginNameInput(tch.fullName);
-                    setLoginNumberInput(tch.employeeNumber);
-                    const res = loginTeacherWithCredentials(tch.fullName, tch.employeeNumber);
-                    if (res.success) {
-                      setIsLoggedOutManually(false);
-                      setLoginError(null);
-                    }
-                  }}
-                  className="w-full text-right p-2.5 rounded-xl bg-slate-50 hover:bg-indigo-50 text-slate-700 hover:text-indigo-950 border border-slate-200 text-[11px] flex items-center justify-between transition-colors cursor-pointer"
-                >
-                  <div className="flex items-center gap-2">
-                    <span className="font-bold">{tch.fullName}</span>
-                    <span className="text-slate-400 font-mono">({tch.employeeNumber})</span>
-                  </div>
-                  <span className="text-[10px] text-indigo-700 font-bold bg-white px-2 py-0.5 rounded-md border border-indigo-100">
-                    {(tch.teachingSubjects || [])[0] || tch.specialization}
-                  </span>
-                </button>
-              ))}
+              .map((tch) => {
+                const uName = tch.username || `teacher.${tch.employeeNumber.toLowerCase().replace(/[^a-z0-9]/g, "")}`;
+                const pass = tch.password || "123";
+                return (
+                  <button
+                    key={tch.id}
+                    type="button"
+                    onClick={() => {
+                      setLoginUsernameInput(uName);
+                      setLoginPasswordInput(pass);
+                      const res = loginTeacherWithCredentials(uName, pass);
+                      if (res.success) {
+                        setIsLoggedOutManually(false);
+                        setLoginError(null);
+                      }
+                    }}
+                    className="w-full text-right p-3 rounded-xl bg-slate-50 hover:bg-indigo-50/80 text-slate-800 hover:text-indigo-950 border border-slate-200 hover:border-indigo-300 text-[11px] transition-all cursor-pointer flex flex-col gap-1.5 shadow-2xs group"
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <img src={tch.photo} alt="" className="w-6 h-6 rounded-lg object-cover ring-1 ring-slate-200" />
+                        <span className="font-bold text-slate-900">{tch.fullName}</span>
+                        <span className="text-slate-400 font-mono text-[10px]">({tch.employeeNumber})</span>
+                      </div>
+                      <span className="text-[10px] text-indigo-700 font-bold bg-white px-2 py-0.5 rounded-md border border-indigo-100 group-hover:bg-indigo-600 group-hover:text-white transition-colors">
+                        دخول بهذا المعلم ←
+                      </span>
+                    </div>
+
+                    <div className="flex items-center justify-between text-[10px] text-slate-600 pt-1 border-t border-slate-200/60">
+                      <div className="flex items-center gap-2">
+                        <span>اسم المستخدم: <strong className="font-mono text-indigo-700">{uName}</strong></span>
+                        <span>كلمة السر: <strong className="font-mono text-slate-800">{pass}</strong></span>
+                      </div>
+                      <div className="text-[9.5px] text-slate-500 font-medium">
+                        المواد: {(tch.teachingSubjects || [])[0] || tch.specialization}
+                      </div>
+                    </div>
+                  </button>
+                );
+              })}
           </div>
         </div>
       </div>
@@ -215,7 +258,11 @@ export const TeacherPortal: React.FC = () => {
     ])
   );
 
-  const assignedGradesList = grades.filter((g) => assignedGradeIds.includes(g.id));
+  const assignedGradesList = grades.filter((g) =>
+    assignedGradeIds.some(
+      (gid) => g.id === gid || g.name === gid || g.code === gid
+    )
+  );
 
   // If teacher has assigned sections/grades, strictly restrict to them. Otherwise fallback gracefully.
   const effectiveGrades = assignedGradesList.length > 0 ? assignedGradesList : grades;
@@ -233,6 +280,25 @@ export const TeacherPortal: React.FC = () => {
           val.includes(sub.name)
       ) || sub.teacherId === currentTeacherStaff.id
   );
+
+  // If teacher has custom subjects assigned that don't match default subject IDs, synthesize them so they are usable!
+  assignedSubjectIdentifiers.forEach((subNameOrId) => {
+    if (!assignedSubjectsList.some((s) => s.id === subNameOrId || s.name === subNameOrId)) {
+      assignedSubjectsList.push({
+        id: `sub-custom-${subNameOrId}`,
+        name: subNameOrId,
+        code: subNameOrId.slice(0, 4).toUpperCase(),
+        gradeId: effectiveGrades[0]?.id || "grade-1",
+        gradeName: effectiveGrades[0]?.name || "الصف الأول",
+        weeklyPeriods: 4,
+        isCore: true,
+        maxScore: 100,
+        passingScore: 50,
+        teacherId: currentTeacherStaff.id,
+        teacherName: currentTeacherStaff.fullName,
+      });
+    }
+  });
 
   const effectiveSubjects = assignedSubjectsList.length > 0 ? assignedSubjectsList : subjects;
 
@@ -494,12 +560,15 @@ export const TeacherPortal: React.FC = () => {
 
   // Strictly filter students: must be in the teacher's assigned classes/sections!
   const teacherScopeStudents = students.filter((s) => {
-    // If teacher has assigned sections, match them
-    if (assignedSectionsList.length > 0) {
+    // If teacher has assigned sections or assigned grades, strictly match them
+    if (assignedSectionsList.length > 0 || assignedGradesList.length > 0) {
       return (
         assignedSectionsList.some(
           (sec) => sec.id === s.sectionId || sec.name === s.sectionName
-        ) || assignedGradeIds.includes(s.gradeId)
+        ) ||
+        assignedGradesList.some(
+          (gr) => gr.id === s.gradeId || gr.name === s.gradeName
+        )
       );
     }
     return true;
@@ -770,6 +839,16 @@ export const TeacherPortal: React.FC = () => {
                   )}
                 </div>
               </div>
+
+              <span className="text-slate-300">|</span>
+
+              <div className="flex items-center gap-1.5 text-indigo-900 bg-indigo-50/80 px-2.5 py-0.5 rounded-lg border border-indigo-200">
+                <User className="w-3.5 h-3.5 text-indigo-600" />
+                <span className="font-bold text-[11px]">اسم المستخدم:</span>
+                <strong className="font-mono text-xs text-indigo-950 font-bold">
+                  {currentTeacherStaff.username || `teacher.${currentTeacherStaff.employeeNumber.toLowerCase()}`}
+                </strong>
+              </div>
             </div>
           </div>
         </div>
@@ -806,10 +885,10 @@ export const TeacherPortal: React.FC = () => {
           <button
             onClick={handleLogout}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 text-xs font-bold transition-colors cursor-pointer"
-            title="تبديل حساب المعلم والدخول باسم ورقم آخر"
+            title="تسجيل الخروج والدخول باسم مستخدم آخر"
           >
             <LogOut className="w-3.5 h-3.5" />
-            <span>تبديل المعلم</span>
+            <span>تسجيل الخروج</span>
           </button>
         </div>
       </div>

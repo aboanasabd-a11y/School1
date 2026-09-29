@@ -57,6 +57,8 @@ const MainContent: React.FC = () => {
         return <DashboardOverview setActiveTab={setActiveModule} />;
       case "school":
         return <SchoolStructureView />;
+      case "subjects":
+        return <SchoolStructureView initialSubTab="subjects" />;
       case "students":
         return <StudentsManagerView />;
       case "staff":
