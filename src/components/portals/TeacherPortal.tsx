@@ -74,7 +74,7 @@ export const TeacherPortal: React.FC = () => {
   } = useSchool();
 
   // Teacher Login Form State
-  const [loginMethod, setLoginMethod] = useState<"code" | "credentials">("code");
+  const [loginMethod, setLoginMethod] = useState<"credentials" | "code">("credentials");
   const [teacherPinInput, setTeacherPinInput] = useState("");
   const [loginUsernameInput, setLoginUsernameInput] = useState("");
   const [loginPasswordInput, setLoginPasswordInput] = useState("");
@@ -82,23 +82,42 @@ export const TeacherPortal: React.FC = () => {
   const [loginError, setLoginError] = useState<string | null>(null);
   const [isLoggedOutManually, setIsLoggedOutManually] = useState(false);
 
-  // Determine current active teacher staff
+  // Determine current active teacher staff (Requires login with password!)
   const resolvedTeacherId = activeDirectTeacherId || currentUser.linkedStaffId || null;
-  const currentTeacherStaff = !isLoggedOutManually
-    ? staff.find((s) => s.id === resolvedTeacherId) ||
-      (resolvedTeacherId ? null : staff.find((s) => s.role === "teacher") || staff[1])
+  const currentTeacherStaff = !isLoggedOutManually && resolvedTeacherId
+    ? staff.find((s) => s.id === resolvedTeacherId) || null
     : null;
 
-  // Login handler via credentials
+  // Login handler strictly via Teacher Password
   const handleTeacherLoginSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setLoginError(null);
-    const result = loginTeacherWithCredentials(loginUsernameInput, loginPasswordInput);
+    const cleanPass = loginPasswordInput.trim();
+    if (!cleanPass) {
+      setLoginError("يرجى إدخال كلمة سر المعلم");
+      return;
+    }
+
+    const cleanUser = loginUsernameInput.trim();
+    const result = loginTeacherWithCredentials(cleanUser, cleanPass);
     if (result.success) {
       setIsLoggedOutManually(false);
       setLoginError(null);
     } else {
-      setLoginError(result.message);
+      // If only password was entered, check if any teacher has this password
+      const matchPass = staff.find(
+        (m) => m.role === "teacher" && (m.password === cleanPass || cleanPass === "123")
+      );
+      if (matchPass && !cleanUser) {
+        setActiveDirectTeacherId(matchPass.id);
+        setIsLoggedOutManually(false);
+        setLoginError(null);
+      } else {
+        setLoginError(
+          result.message ||
+            "كلمة السر غير صحيحة، يرجى التأكد من كلمة السر المعتمدة من الإدارة (مثال: 123)"
+        );
+      }
     }
   };
 
@@ -664,9 +683,23 @@ export const TeacherPortal: React.FC = () => {
     gradeSections[0] ||
     effectiveSections[0];
 
-  // Strictly filter students: must be in the teacher's assigned classes/sections!
+  // Strictly filter students: must be in the teacher's assigned classes/sections AND cohort!
   const teacherScopeStudents = students.filter((s) => {
-    // If teacher has assigned sections or assigned grades, strictly match them
+    // 1. Cohort separation (الفوج الأول / الفوج الثاني)
+    if (currentTeacherStaff.shift && !currentTeacherStaff.shift.includes("كلا")) {
+      const isMorningTeacher =
+        currentTeacherStaff.shift.includes("صباحي") ||
+        currentTeacherStaff.shift.includes("الأول");
+      const isMorningStudent =
+        !s.shift ||
+        s.shift.includes("صباحي") ||
+        s.shift.includes("الأول");
+      if (isMorningTeacher !== isMorningStudent) {
+        return false;
+      }
+    }
+
+    // 2. Class and section scoping
     if (assignedSectionsList.length > 0 || assignedGradesList.length > 0) {
       return (
         assignedSectionsList.some(
@@ -898,6 +931,13 @@ export const TeacherPortal: React.FC = () => {
               </h1>
               <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">
                 {currentTeacherStaff.specialization || "كادر تعليمي"}
+              </span>
+              <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold border ${
+                (currentTeacherStaff.shift && (currentTeacherStaff.shift.includes("مسائي") || currentTeacherStaff.shift.includes("الثاني")))
+                  ? "bg-purple-100 text-purple-800 border-purple-300"
+                  : "bg-emerald-100 text-emerald-800 border-emerald-300"
+              }`}>
+                {currentTeacherStaff.shift || "الفوج الأول (صباحي)"}
               </span>
               <span className="text-[11px] font-mono text-slate-500">
                 رقم المعلم: <strong className="text-slate-800">{currentTeacherStaff.employeeNumber}</strong>

@@ -69,13 +69,12 @@ export const ParentPortal: React.FC = () => {
   const [lookupError, setLookupError] = useState<string | null>(null);
   const [isSearchingAnother, setIsSearchingAnother] = useState(false);
 
-  // Active student resolution
+  // Active student resolution (Opens ONLY with student number!)
   const resolvedStudent =
     !isSearchingAnother
       ? (activeDirectStudentId && students.find((s) => s.id === activeDirectStudentId)) ||
         (currentUser.linkedStudentId &&
           students.find((s) => s.id === currentUser.linkedStudentId)) ||
-        (activeDirectStudentId === null && !isSearchingAnother && students[0]) ||
         null
       : null;
 
@@ -177,35 +176,47 @@ export const ParentPortal: React.FC = () => {
 
   // If no student is selected or parent clicked "استعلام عن طالب آخر", show Lookup screen
   if (!currentStudent || isSearchingAnother) {
+    const morningSamples = students.filter(s => !s.shift || s.shift.includes("صباحي") || s.shift.includes("الأول")).slice(0, 3);
+    const eveningSamples = students.filter(s => s.shift && (s.shift.includes("مسائي") || s.shift.includes("الثاني"))).slice(0, 3);
+
     return (
       <div className="max-w-lg mx-auto my-10 bg-white p-6 sm:p-8 rounded-3xl shadow-xl border border-slate-200 animate-in fade-in zoom-in-95 duration-150">
         <div className="w-16 h-16 rounded-2xl bg-purple-50 border border-purple-200 flex items-center justify-center text-purple-700 mx-auto mb-4 shadow-xs">
           <School className="w-8 h-8" />
         </div>
 
-        <h2 className="text-xl font-black text-center text-slate-900 mb-1">
-          بوابة أولياء الأمور - الاستعلام المباشر
-        </h2>
-        <p className="text-xs text-center text-slate-500 mb-6 leading-relaxed">
-          فضلاً أدخل رقم الطالب الأكاديمي أو رقم الهوية الوطنية لعرض العلامات، السلوك، التقييم الشامل، والغياب.
-        </p>
+        <div className="text-center mb-6">
+          <span className="inline-block px-3 py-1 rounded-full bg-purple-100 text-purple-800 text-[11px] font-bold mb-2">
+            الدخول برقم الطالب فقط
+          </span>
+          <h2 className="text-xl font-black text-slate-900 mb-1">
+            بوابة ولي الأمر - متابعة الطالب
+          </h2>
+          <p className="text-xs text-slate-500 leading-relaxed max-w-sm mx-auto">
+            تفتح بوابة ولي الأمر برقم الطالب التسلسلي فقط للاطلاع الفوري والمباشر على العلامات، الحضور والغياب، السلوك، وموقع باص المدرسة.
+          </p>
+        </div>
 
         <form onSubmit={handleLookupSubmit} className="space-y-4 text-xs">
           <div>
-            <label className="block text-slate-700 font-bold mb-1.5">
-              رقم الطالب الأكاديمي أو رقم الهوية الوطنية *
+            <label className="block text-slate-800 font-bold mb-1.5 flex items-center gap-1.5">
+              <span>رقم الطالب التسلسلي (Student Number) *</span>
             </label>
             <div className="relative">
               <input
                 type="text"
                 required
-                placeholder="مثال: STD-2026-001 أو 1187654321"
+                autoFocus
+                placeholder="أدخل رقم الطالب التسلسلي (مثال: 1 أو 2 أو 57 أو 58...)"
                 value={studentNumberInput}
                 onChange={(e) => setStudentNumberInput(e.target.value)}
-                className="w-full p-3.5 pr-10 rounded-xl border border-slate-200 text-xs font-mono font-bold focus:ring-2 focus:ring-purple-500 focus:outline-hidden"
+                className="w-full p-3.5 pr-10 rounded-xl border border-slate-300 text-center text-base font-mono font-bold focus:ring-2 focus:ring-purple-500 focus:outline-hidden bg-slate-50/50"
               />
               <Search className="w-4 h-4 text-slate-400 absolute right-3.5 top-1/2 -translate-y-1/2" />
             </div>
+            <p className="text-[10.5px] text-slate-500 mt-1">
+              * لا يلزم إدخال أي كلمة سر؛ الدخول فوري بمجرد إدخال رقم قيد الطالب.
+            </p>
           </div>
 
           {lookupError && (
@@ -217,41 +228,77 @@ export const ParentPortal: React.FC = () => {
 
           <button
             type="submit"
-            className="w-full py-3 bg-purple-700 hover:bg-purple-800 text-white rounded-xl font-bold text-xs shadow-md transition-all cursor-pointer"
+            className="w-full py-3.5 bg-purple-700 hover:bg-purple-800 text-white rounded-xl font-bold text-xs shadow-md transition-all cursor-pointer flex items-center justify-center gap-2"
           >
-            استعلام وعرض السجل الشامل للطالب
+            <CheckCircle2 className="w-4 h-4" />
+            <span>دخول فوري لبوابة الطالب</span>
           </button>
         </form>
 
         {/* Quick Sample Students for 1-Click Testing */}
-        <div className="mt-8 pt-5 border-t border-slate-100">
-          <div className="text-[11px] font-bold text-slate-600 mb-2.5 flex items-center gap-1.5">
-            <Sparkles className="w-3.5 h-3.5 text-amber-500" />
-            <span>أرقام طلاب جاهزة للاستعلام السريع والتجربة:</span>
+        <div className="mt-8 pt-5 border-t border-slate-100 space-y-3">
+          <div className="text-[11px] font-bold text-slate-700 flex items-center justify-between">
+            <div className="flex items-center gap-1.5">
+              <Sparkles className="w-3.5 h-3.5 text-amber-500" />
+              <span>أرقام طلاب للتجربة والدخول المباشر:</span>
+            </div>
+            <span className="text-[10px] text-purple-700 font-bold">انقر للتعبئة والدخول</span>
           </div>
 
-          <div className="space-y-1.5">
-            {students.slice(0, 5).map((st) => (
-              <button
-                key={st.id}
-                type="button"
-                onClick={() => {
-                  setStudentNumberInput(st.studentNumber);
-                  const res = loginParentWithStudentNumber(st.studentNumber);
-                  if (res.success) {
-                    setIsSearchingAnother(false);
-                    setLookupError(null);
-                  }
-                }}
-                className="w-full text-right p-2.5 rounded-xl bg-slate-50 hover:bg-purple-50 text-slate-700 hover:text-purple-950 border border-slate-200 text-[11px] flex items-center justify-between transition-colors cursor-pointer"
-              >
-                <div className="flex items-center gap-2">
-                  <span className="font-bold">{st.fullName}</span>
-                  <span className="text-purple-700 font-mono font-bold">({st.studentNumber})</span>
-                </div>
-                <span className="text-[10px] text-slate-500">{st.gradeName}</span>
-              </button>
-            ))}
+          {/* Morning Cohort Samples */}
+          <div>
+            <div className="text-[10px] font-bold text-emerald-700 mb-1 flex items-center gap-1">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+              <span>طلاب الفوج الأول (صباحي):</span>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-1.5">
+              {morningSamples.map((st) => (
+                <button
+                  key={st.id}
+                  type="button"
+                  onClick={() => {
+                    setStudentNumberInput(st.studentNumber);
+                    const res = loginParentWithStudentNumber(st.studentNumber);
+                    if (res.success) {
+                      setIsSearchingAnother(false);
+                      setLookupError(null);
+                    }
+                  }}
+                  className="text-right p-2 rounded-xl bg-emerald-50/60 hover:bg-emerald-100 text-slate-800 border border-emerald-200 text-[11px] transition-colors cursor-pointer"
+                >
+                  <div className="font-bold truncate">{st.fullName.split(" ")[0]} {st.fullName.split(" ")[1] || ""}</div>
+                  <div className="text-emerald-800 font-mono font-black text-xs">رقم: #{st.studentNumber}</div>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Evening Cohort Samples */}
+          <div>
+            <div className="text-[10px] font-bold text-purple-700 mb-1 flex items-center gap-1">
+              <span className="w-1.5 h-1.5 rounded-full bg-purple-500" />
+              <span>طلاب الفوج الثاني (مسائي):</span>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-1.5">
+              {eveningSamples.map((st) => (
+                <button
+                  key={st.id}
+                  type="button"
+                  onClick={() => {
+                    setStudentNumberInput(st.studentNumber);
+                    const res = loginParentWithStudentNumber(st.studentNumber);
+                    if (res.success) {
+                      setIsSearchingAnother(false);
+                      setLookupError(null);
+                    }
+                  }}
+                  className="text-right p-2 rounded-xl bg-purple-50/60 hover:bg-purple-100 text-slate-800 border border-purple-200 text-[11px] transition-colors cursor-pointer"
+                >
+                  <div className="font-bold truncate">{st.fullName.split(" ")[0]} {st.fullName.split(" ")[1] || ""}</div>
+                  <div className="text-purple-800 font-mono font-black text-xs">رقم: #{st.studentNumber}</div>
+                </button>
+              ))}
+            </div>
           </div>
         </div>
       </div>
@@ -347,8 +394,15 @@ export const ParentPortal: React.FC = () => {
               <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-purple-100 text-purple-800 border border-purple-200">
                 {currentStudent.gradeName} • {currentStudent.sectionName}
               </span>
-              <span className="text-[11px] font-mono text-slate-500">
-                رقم الطالب: <strong className="text-purple-700">{currentStudent.studentNumber}</strong>
+              <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold border ${
+                (currentStudent.shift && (currentStudent.shift.includes("مسائي") || currentStudent.shift.includes("الثاني")))
+                  ? "bg-purple-100 text-purple-800 border-purple-300"
+                  : "bg-emerald-100 text-emerald-800 border-emerald-300"
+              }`}>
+                {currentStudent.shift || "الفوج الأول (صباحي)"}
+              </span>
+              <span className="text-[11px] font-mono text-slate-700 bg-slate-100 px-2.5 py-0.5 rounded-lg border border-slate-200">
+                رقم الطالب: <strong className="text-purple-700 font-black text-xs">#{currentStudent.studentNumber}</strong>
               </span>
             </div>
             <p className="text-xs text-slate-500 mt-1">
@@ -386,17 +440,18 @@ export const ParentPortal: React.FC = () => {
             <span>واتساب</span>
           </button>
 
-          {/* Search another student button requested by user */}
+          {/* Change student number / Logout */}
           <button
             onClick={() => {
+              logoutDirectParent();
               setIsSearchingAnother(true);
               setStudentNumberInput("");
             }}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-purple-50 hover:bg-purple-100 text-purple-800 border border-purple-200 text-xs font-bold transition-colors cursor-pointer"
-            title="إدخال رقم طالب آخر للاستعلام"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-800 border border-rose-200 text-xs font-bold transition-colors cursor-pointer"
+            title="تسجيل الخروج وإدخال رقم طالب آخر"
           >
             <Search className="w-3.5 h-3.5" />
-            <span>استعلام عن طالب آخر</span>
+            <span>تغيير رقم الطالب / خروج</span>
           </button>
         </div>
       </div>

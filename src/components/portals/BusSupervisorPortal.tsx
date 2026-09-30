@@ -24,11 +24,58 @@ import {
 } from "lucide-react";
 
 export const BusSupervisorPortal: React.FC = () => {
-  const { currentUser, busRoutes, students, updateBusGps } = useSchool();
+  const {
+    currentUser,
+    busRoutes,
+    students,
+    updateBusGps,
+    activeDirectDriverId,
+    loginDriverWithNumber,
+    logoutDirectDriver,
+  } = useSchool();
+
+  // Driver Login & Authentication State
+  const [driverNumberInput, setDriverNumberInput] = useState("");
+  const [driverLoginError, setDriverLoginError] = useState<string | null>(null);
+  const [isDriverLoggedOut, setIsDriverLoggedOut] = useState(false);
+
+  // Authenticated route resolution
+  const authenticatedRoute =
+    !isDriverLoggedOut
+      ? (activeDirectDriverId && busRoutes.find((r) => r.id === activeDirectDriverId)) ||
+        (currentUser.role === "bus_supervisor" && busRoutes[0]) ||
+        null
+      : null;
 
   // Active route
-  const [selectedRouteId, setSelectedRouteId] = useState(busRoutes[0]?.id || "");
-  const currentRoute = busRoutes.find((r) => r.id === selectedRouteId) || busRoutes[0];
+  const [selectedRouteId, setSelectedRouteId] = useState(authenticatedRoute?.id || busRoutes[0]?.id || "");
+
+  useEffect(() => {
+    if (authenticatedRoute && authenticatedRoute.id !== selectedRouteId) {
+      setSelectedRouteId(authenticatedRoute.id);
+    }
+  }, [authenticatedRoute]);
+
+  const currentRoute = busRoutes.find((r) => r.id === selectedRouteId) || authenticatedRoute || busRoutes[0];
+
+  const handleDriverLogin = (e: React.FormEvent) => {
+    e.preventDefault();
+    setDriverLoginError(null);
+    const result = loginDriverWithNumber(driverNumberInput);
+    if (result.success && result.route) {
+      setSelectedRouteId(result.route.id);
+      setIsDriverLoggedOut(false);
+      setDriverLoginError(null);
+    } else {
+      setDriverLoginError(result.message);
+    }
+  };
+
+  const handleDriverLogout = () => {
+    logoutDirectDriver();
+    setIsDriverLoggedOut(true);
+    setDriverNumberInput("");
+  };
 
   // Active sub-tab
   const [activeTab, setActiveTab] = useState<"passengers" | "radar" | "trip_status" | "broadcast">("passengers");
@@ -191,10 +238,20 @@ export const BusSupervisorPortal: React.FC = () => {
   // Broadcast message to parents
   const [broadcastText, setBroadcastText] = useState("");
 
-  // Assigned students to this bus route
-  const assignedStudents = students.filter(
-    (s) => s.transportation?.usesBus && s.transportation?.busRouteId === currentRoute?.id
-  );
+  // Assigned students to this bus route matching the bus's cohort
+  const assignedStudents = students.filter((s) => {
+    if (currentRoute?.shift) {
+      const isMorningRoute = currentRoute.shift.includes("صباحي") || currentRoute.shift.includes("الأول");
+      const isMorningStudent = !s.shift || s.shift.includes("صباحي") || s.shift.includes("الأول");
+      if (isMorningRoute !== isMorningStudent) return false;
+    }
+    return (
+      (s.transportation?.usesBus && s.transportation?.busRouteId === currentRoute?.id) ||
+      (currentRoute?.activeStudentsIds &&
+        (currentRoute.activeStudentsIds.includes(s.id) ||
+          currentRoute.activeStudentsIds.includes(s.studentNumber)))
+    );
+  });
 
   const filteredAssigned = assignedStudents.filter(
     (s) =>
@@ -259,35 +316,162 @@ export const BusSupervisorPortal: React.FC = () => {
   const handleSendBroadcast = (e: React.FormEvent) => {
     e.preventDefault();
     if (!broadcastText.trim()) return;
-
     setToastMessage(`تم بث التنبيه الفوري لجميع أولياء أمور حافلة (${currentRoute.name}) بنجاح!`);
     setBroadcastText("");
     setTimeout(() => setToastMessage(null), 4000);
   };
+
+  // If driver is not authenticated, show Driver Login Screen
+  if (!authenticatedRoute) {
+    return (
+      <div className="max-w-lg mx-auto my-10 bg-white p-6 sm:p-8 rounded-3xl shadow-xl border border-slate-200 animate-in fade-in zoom-in-95 duration-150">
+        <div className="w-16 h-16 rounded-2xl bg-amber-50 border border-amber-200 flex items-center justify-center text-amber-600 mx-auto mb-4 shadow-xs">
+          <Bus className="w-8 h-8" />
+        </div>
+
+        <div className="text-center mb-6">
+          <span className="inline-block px-3 py-1 rounded-full bg-amber-100 text-amber-900 text-[11px] font-bold mb-2">
+            الدخول برقم السائق فقط
+          </span>
+          <h2 className="text-xl font-black text-slate-900 mb-1">
+            بوابة السائق والنقل المدرسي
+          </h2>
+          <p className="text-xs text-slate-500 leading-relaxed max-w-sm mx-auto">
+            تفتح بوابة السائقين برقم السائق المعتمد لعرض مسار الحافلة، كشف ركاب الفوج، التتبع الآلي GPS، وتسجيل الصعود والنزول.
+          </p>
+        </div>
+
+        <form onSubmit={handleDriverLogin} className="space-y-4 text-xs">
+          <div>
+            <label className="block text-slate-800 font-bold mb-1.5 flex items-center gap-1.5">
+              <span>رقم السائق المعتمد (Driver Number) *</span>
+            </label>
+            <div className="relative">
+              <input
+                type="text"
+                required
+                autoFocus
+                placeholder="أدخل رقم السائق (مثال: 1 أو 2)"
+                value={driverNumberInput}
+                onChange={(e) => setDriverNumberInput(e.target.value)}
+                className="w-full p-3.5 pr-10 rounded-xl border border-slate-300 text-center text-base font-mono font-bold focus:ring-2 focus:ring-amber-500 focus:outline-hidden bg-slate-50/50"
+              />
+              <Bus className="w-4 h-4 text-slate-400 absolute right-3.5 top-1/2 -translate-y-1/2" />
+            </div>
+            <p className="text-[10.5px] text-slate-500 mt-1">
+              * لكل سائق وحافلة رقم معتمد من إدارة المدرسة؛ أدخل رقم السائق للانتقال الفوري لرحلتك.
+            </p>
+          </div>
+
+          {driverLoginError && (
+            <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs flex items-center gap-2">
+              <AlertTriangle className="w-4 h-4 shrink-0" />
+              <span>{driverLoginError}</span>
+            </div>
+          )}
+
+          <button
+            type="submit"
+            className="w-full py-3.5 bg-amber-600 hover:bg-amber-700 text-white rounded-xl font-bold text-xs shadow-md transition-all cursor-pointer flex items-center justify-center gap-2"
+          >
+            <CheckCircle2 className="w-4 h-4" />
+            <span>دخول لبوابة السائق والرحلة</span>
+          </button>
+        </form>
+
+        {/* Quick Sample Drivers for 1-Click Testing */}
+        <div className="mt-8 pt-5 border-t border-slate-100 space-y-2">
+          <div className="text-[11px] font-bold text-slate-700 flex items-center justify-between">
+            <div className="flex items-center gap-1.5">
+              <Sparkles className="w-3.5 h-3.5 text-amber-500" />
+              <span>سائقو الحافلات المسجلون (انقر للتجربة والدخول المباشر):</span>
+            </div>
+            <span className="text-[10px] text-amber-700 font-bold">تجربة الدخول الفوري</span>
+          </div>
+
+          <div className="space-y-1.5">
+            {busRoutes.map((rt) => (
+              <button
+                key={rt.id}
+                type="button"
+                onClick={() => {
+                  setDriverNumberInput(rt.driverNumber || "1");
+                  const res = loginDriverWithNumber(rt.driverNumber || "1");
+                  if (res.success && res.route) {
+                    setSelectedRouteId(res.route.id);
+                    setIsDriverLoggedOut(false);
+                    setDriverLoginError(null);
+                  }
+                }}
+                className="w-full text-right p-3 rounded-xl bg-amber-50/70 hover:bg-amber-100/90 text-slate-800 border border-amber-200 text-xs flex items-center justify-between transition-colors cursor-pointer"
+              >
+                <div>
+                  <div className="font-bold text-slate-900">{rt.driverName}</div>
+                  <div className="text-[10.5px] text-slate-500 mt-0.5">
+                    {rt.name || rt.routeNumber} • لوحة: <span className="font-mono text-slate-700">{rt.busPlate}</span>
+                  </div>
+                </div>
+                <div className="text-left">
+                  <span className="inline-block px-2.5 py-1 rounded-lg bg-amber-500 text-white font-black font-mono text-xs">
+                    رقم السائق: #{rt.driverNumber || "1"}
+                  </span>
+                  <div className="text-[10px] font-bold text-amber-800 mt-0.5">{rt.shift || "الفوج الأول (صباحي)"}</div>
+                </div>
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-4">
       {/* Header Banner for Bus Supervisor Portal */}
       <div className="bg-white rounded-xl p-4 border border-slate-200 shadow-xs flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
         <div className="flex items-center gap-3">
-          <div className="w-12 h-12 rounded-xl bg-amber-500 text-white flex items-center justify-center shadow-xs">
-            <Bus className="w-6 h-6" />
+          <div className="w-12 h-12 rounded-xl bg-amber-500 text-slate-950 flex items-center justify-center font-bold text-2xl shadow-xs">
+            🚌
           </div>
           <div>
-            <div className="flex items-center gap-2">
-              <h1 className="text-lg font-bold text-slate-900">بوابة مشرف وسائقي الحافلات المدرسية</h1>
-              <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-amber-100 text-amber-900 border border-amber-200">
-                مشرف النقل المدرسي
+            <div className="flex items-center gap-2 flex-wrap">
+              <h1 className="text-lg font-bold text-slate-900">{currentRoute?.driverName || "سائق الحافلة"}</h1>
+              <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-amber-100 text-amber-900 border border-amber-200 font-mono">
+                رقم السائق: #{currentRoute?.driverNumber || "1"}
+              </span>
+              <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold border ${
+                (currentRoute?.shift && (currentRoute.shift.includes("مسائي") || currentRoute.shift.includes("الثاني")))
+                  ? "bg-purple-100 text-purple-800 border-purple-300"
+                  : "bg-emerald-100 text-emerald-800 border-emerald-300"
+              }`}>
+                {currentRoute?.shift || "الفوج الأول (صباحي)"}
+              </span>
+              <span className="text-[11px] font-mono text-slate-500 bg-slate-100 px-2 py-0.5 rounded-md border border-slate-200">
+                لوحة: <strong className="text-slate-800">{currentRoute?.busPlate}</strong>
               </span>
             </div>
             <p className="text-xs text-slate-500 mt-0.5">
-              مرحباً {currentUser.fullName} • متابعة خطوط السير، صعود ونزول الطلاب، الرادار اللحظي GPS، وتنبيهات أولياء الأمور
+              مسار الرحلة: <strong className="text-slate-800">{currentRoute?.name || currentRoute?.routeNumber}</strong> • المشرف: {currentRoute?.supervisorName} ({currentRoute?.supervisorPhone})
             </p>
           </div>
         </div>
 
-        {/* Quick Tabs Navigation */}
-        <div className="flex flex-wrap gap-1.5 p-1 bg-slate-100 rounded-lg border border-slate-200 w-full md:w-auto">
+        {/* Action: Driver Logout button */}
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={handleDriverLogout}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 text-xs font-bold transition-colors cursor-pointer"
+            title="تسجيل خروج السائق والعودة لشاشة الدخول"
+          >
+            <span>خروج السائق / تبديل الحافلة</span>
+          </button>
+        </div>
+      </div>
+
+      {/* Navigation Sub-Tabs */}
+      <div className="bg-white rounded-xl p-2 border border-slate-200 shadow-xs flex flex-wrap items-center justify-between gap-2">
+        <div className="flex flex-wrap gap-1.5 p-1 bg-slate-100 rounded-lg border border-slate-200 w-full sm:w-auto">
           <button
             onClick={() => setActiveTab("passengers")}
             className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all flex items-center gap-1.5 ${

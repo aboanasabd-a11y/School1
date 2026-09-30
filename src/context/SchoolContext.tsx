@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from "react";
+import React, { createContext, useContext, useState, useEffect, useMemo } from "react";
 import {
   AcademicYear,
   Grade,
@@ -95,6 +95,16 @@ interface SchoolContextType {
   selectedSectionId: string | null;
   setSelectedSectionId: (id: string | null) => void;
 
+  // Cohort (الفوج) separation: الفوج الأول (صباحي) and الفوج الثاني (مسائي)
+  selectedCohort: "all" | "cohort_1" | "cohort_2";
+  setSelectedCohort: (cohort: "all" | "cohort_1" | "cohort_2") => void;
+  studentsInCohort1: Student[];
+  studentsInCohort2: Student[];
+  teachersInCohort1: StaffMember[];
+  teachersInCohort2: StaffMember[];
+  busRoutesInCohort1: BusRoute[];
+  busRoutesInCohort2: BusRoute[];
+
   // Smart Links & Direct Links Dispatcher
   isSmartLinksModalOpen: boolean;
   setIsSmartLinksModalOpen: (open: boolean) => void;
@@ -105,6 +115,8 @@ interface SchoolContextType {
   setActiveDirectStudentId: (id: string | null) => void;
   activeDirectTeacherId: string | null;
   setActiveDirectTeacherId: (id: string | null) => void;
+  activeDirectDriverId: string | null;
+  setActiveDirectDriverId: (id: string | null) => void;
   directLinkNotification: { type: "parent" | "teacher"; targetName: string; targetCode: string; message: string } | null;
   clearDirectLinkNotification: () => void;
   generateParentDirectLink: (studentNumber: string) => string;
@@ -112,8 +124,10 @@ interface SchoolContextType {
   applyDirectLinkAccess: (type: "parent" | "teacher", identifier: string) => boolean;
   loginTeacherWithCredentials: (name: string, phoneOrNumber: string) => { success: boolean; message: string; teacher?: StaffMember };
   loginParentWithStudentNumber: (studentNumberOrId: string) => { success: boolean; message: string; student?: Student };
+  loginDriverWithNumber: (driverNumberOrQuery: string) => { success: boolean; message: string; route?: BusRoute };
   logoutDirectTeacher: () => void;
   logoutDirectParent: () => void;
+  logoutDirectDriver: () => void;
   addEvaluation: (evalData: Omit<EvaluationRecord, "id">) => void;
 
   // Actions
@@ -380,12 +394,88 @@ export const SchoolProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const [selectedGradeId, setSelectedGradeId] = useState<string | null>(null);
   const [selectedSectionId, setSelectedSectionId] = useState<string | null>(null);
 
+  // Cohort (الفوج) separation: الفوج الأول (صباحي) and الفوج الثاني (مسائي)
+  const [selectedCohort, setSelectedCohort] = useState<"all" | "cohort_1" | "cohort_2">("all");
+
+  const studentsInCohort1 = useMemo(
+    () =>
+      students.filter(
+        (s) =>
+          !s.shift ||
+          s.shift.includes("صباحي") ||
+          s.shift.includes("الأول") ||
+          s.shift === "الفوج الأول"
+      ),
+    [students]
+  );
+
+  const studentsInCohort2 = useMemo(
+    () =>
+      students.filter(
+        (s) =>
+          s.shift &&
+          (s.shift.includes("مسائي") ||
+            s.shift.includes("الثاني") ||
+            s.shift === "الفوج الثاني")
+      ),
+    [students]
+  );
+
+  const teachersInCohort1 = useMemo(
+    () =>
+      staff.filter(
+        (m) =>
+          m.role === "teacher" &&
+          (!m.shift ||
+            m.shift.includes("صباحي") ||
+            m.shift.includes("الأول") ||
+            m.shift.includes("كلا"))
+      ),
+    [staff]
+  );
+
+  const teachersInCohort2 = useMemo(
+    () =>
+      staff.filter(
+        (m) =>
+          m.role === "teacher" &&
+          (!m.shift ||
+            m.shift.includes("مسائي") ||
+            m.shift.includes("الثاني") ||
+            m.shift.includes("كلا"))
+      ),
+    [staff]
+  );
+
+  const busRoutesInCohort1 = useMemo(
+    () =>
+      busRoutes.filter(
+        (r) =>
+          !r.shift ||
+          r.shift.includes("صباحي") ||
+          r.shift.includes("الأول")
+      ),
+    [busRoutes]
+  );
+
+  const busRoutesInCohort2 = useMemo(
+    () =>
+      busRoutes.filter(
+        (r) =>
+          r.shift &&
+          (r.shift.includes("مسائي") ||
+            r.shift.includes("الثاني"))
+      ),
+    [busRoutes]
+  );
+
   // Smart Links & Direct Access State
   const [isSmartLinksModalOpen, setIsSmartLinksModalOpen] = useState(false);
   const [smartLinksInitialTab, setSmartLinksInitialTab] = useState<"parent" | "teacher">("parent");
   const [smartLinksTargetId, setSmartLinksTargetId] = useState<string | null>(null);
   const [activeDirectStudentId, setActiveDirectStudentId] = useState<string | null>(null);
   const [activeDirectTeacherId, setActiveDirectTeacherId] = useState<string | null>(null);
+  const [activeDirectDriverId, setActiveDirectDriverId] = useState<string | null>(null);
   const [directLinkNotification, setDirectLinkNotification] = useState<{
     type: "parent" | "teacher";
     targetName: string;
@@ -582,18 +672,20 @@ export const SchoolProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const loginParentWithStudentNumber = (
     studentNumberOrId: string
   ): { success: boolean; message: string; student?: Student } => {
-    const query = studentNumberOrId.trim().toLowerCase();
+    const query = studentNumberOrId.trim();
     if (!query) {
-      return { success: false, message: "يرجى إدخال رقم الطالب الأكاديمي أو رقم الهوية" };
+      return { success: false, message: "يرجى إدخال رقم الطالب التسلسلي" };
     }
+    const queryNum = parseInt(query, 10);
 
-    const found = students.find(
-      (s) =>
-        (s.studentNumber && s.studentNumber.toLowerCase() === query) ||
-        (s.id && s.id.toLowerCase() === query) ||
-        (s.nationalId && s.nationalId === query) ||
-        (s.fullName && s.fullName.toLowerCase().includes(query))
-    );
+    const found = students.find((s) => {
+      if (s.studentNumber && s.studentNumber === query) return true;
+      if (!isNaN(queryNum) && parseInt(s.studentNumber, 10) === queryNum) return true;
+      if (s.id && s.id.toLowerCase() === query.toLowerCase()) return true;
+      if (s.nationalId && s.nationalId === query) return true;
+      if (s.fullName && s.fullName.toLowerCase().includes(query.toLowerCase())) return true;
+      return false;
+    });
 
     if (found) {
       applyDirectLinkAccess("parent", found.studentNumber || found.id);
@@ -602,7 +694,40 @@ export const SchoolProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
     return {
       success: false,
-      message: "لم يتم العثور على طالب يطابق رقم القيد أو الهوية المدخلة. يرجى التحقق من الرقم.",
+      message: "لم يتم العثور على طالب برقم القيد المدخل. يرجى إدخال رقم الطالب التسلسلي الصحيح.",
+    };
+  };
+
+  const loginDriverWithNumber = (
+    driverNumberOrQuery: string
+  ): { success: boolean; message: string; route?: BusRoute } => {
+    const query = driverNumberOrQuery.trim();
+    if (!query) {
+      return { success: false, message: "يرجى إدخال رقم السائق" };
+    }
+    const queryNum = parseInt(query, 10);
+    const foundRoute = busRoutes.find((r) => {
+      if (r.driverNumber && r.driverNumber === query) return true;
+      if (!isNaN(queryNum) && parseInt(r.driverNumber || "", 10) === queryNum) return true;
+      if (r.driverName && r.driverName.includes(query)) return true;
+      if (r.busPlate && r.busPlate.includes(query)) return true;
+      if (r.id === query) return true;
+      return false;
+    });
+
+    if (foundRoute) {
+      setActiveDirectDriverId(foundRoute.id);
+      setActiveModule("portal_bus_supervisor");
+      return {
+        success: true,
+        message: `مرحباً بك: ${foundRoute.driverName} (${foundRoute.routeNumber})`,
+        route: foundRoute,
+      };
+    }
+
+    return {
+      success: false,
+      message: "رقم السائق غير صحيح؛ يرجى إدخال رقم سائق معتمد (مثال: 1 أو 2)",
     };
   };
 
@@ -625,6 +750,10 @@ export const SchoolProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       url.searchParams.delete("studentId");
       window.history.pushState({}, "", url.pathname + (url.search ? url.search : ""));
     } catch (_) {}
+  };
+
+  const logoutDirectDriver = () => {
+    setActiveDirectDriverId(null);
   };
 
   const addEvaluation = (evalData: Omit<EvaluationRecord, "id">) => {
@@ -795,11 +924,16 @@ export const SchoolProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   // Student Actions
   const addStudent = (studentData: Omit<Student, "id" | "studentNumber">) => {
     const newId = `std-${Date.now()}`;
-    const newStudentNumber = `STD-${new Date().getFullYear()}-${Math.floor(100 + Math.random() * 900)}`;
+    const existingNumbers = students
+      .map((s) => parseInt(s.studentNumber, 10))
+      .filter((n) => !isNaN(n));
+    const maxNumber = existingNumbers.length > 0 ? Math.max(...existingNumbers) : students.length;
+    const newStudentNumber = String(maxNumber + 1);
     const newStudent: Student = {
       ...studentData,
       id: newId,
       studentNumber: newStudentNumber,
+      shift: studentData.shift || "الفوج الأول (صباحي)",
     };
     setStudents((prev) => [newStudent, ...prev]);
     // update grade and section count
@@ -809,7 +943,7 @@ export const SchoolProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     setSections((prev) =>
       prev.map((s) => (s.id === newStudent.sectionId ? { ...s, currentStudentsCount: s.currentStudentsCount + 1 } : s))
     );
-    addAuditLog("إضافة طالب جديد", "شؤون الطلاب", `تم تسجيل الطالب ${newStudent.fullName} بالرقم ${newStudentNumber}`);
+    addAuditLog("إضافة طالب جديد", "شؤون الطلاب", `تم تسجيل الطالب ${newStudent.fullName} بالرقم التسلسلي ${newStudentNumber}`);
   };
 
   const updateStudent = (id: string, updatedData: Partial<Student>) => {
@@ -1433,6 +1567,14 @@ export const SchoolProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         setSelectedSectionId,
         isSmartLinksModalOpen,
         setIsSmartLinksModalOpen,
+        selectedCohort,
+        setSelectedCohort,
+        studentsInCohort1,
+        studentsInCohort2,
+        teachersInCohort1,
+        teachersInCohort2,
+        busRoutesInCohort1,
+        busRoutesInCohort2,
         smartLinksInitialTab,
         smartLinksTargetId,
         openSmartLinksModal,
@@ -1440,6 +1582,8 @@ export const SchoolProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         setActiveDirectStudentId,
         activeDirectTeacherId,
         setActiveDirectTeacherId,
+        activeDirectDriverId,
+        setActiveDirectDriverId,
         directLinkNotification,
         clearDirectLinkNotification,
         generateParentDirectLink,
@@ -1447,8 +1591,10 @@ export const SchoolProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         applyDirectLinkAccess,
         loginTeacherWithCredentials,
         loginParentWithStudentNumber,
+        loginDriverWithNumber,
         logoutDirectTeacher,
         logoutDirectParent,
+        logoutDirectDriver,
         addEvaluation,
         addStudent,
         updateStudent,

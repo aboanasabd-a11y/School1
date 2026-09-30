@@ -257,6 +257,7 @@ export interface StaffMember {
   assignedGrades?: string[]; // Grade IDs or Names
   username?: string; // اسم المستخدم المخصص للدخول
   password?: string; // كلمة المرور للدخول
+  shift?: "الفوج الأول (صباحي)" | "الفوج الثاني (مسائي)" | "كلا الفوجين"; // الفوج الموكل به
   salary: number;
   status: 'active' | 'on_leave' | 'resigned';
   photo: string;
@@ -399,7 +400,10 @@ export interface BusStop {
 
 export interface BusRoute {
   id: string;
+  name?: string;
   routeNumber: string; // e.g. "باص 01 - مسار النرجس"
+  driverNumber?: string; // رقم السائق للدخول السريع
+  shift?: "الفوج الأول (صباحي)" | "الفوج الثاني (مسائي)"; // الفوج الخاص بالحافلة
   busPlate: string;
   busModel: string;
   driverName: string;

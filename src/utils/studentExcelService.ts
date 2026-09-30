@@ -204,7 +204,7 @@ export function officialRowToStudent(
     }
   }
 
-  const studentNumber = `STD-2026-${String(idVal).padStart(3, "0")}`;
+  const studentNumber = String(idVal);
 
   const student: Student = {
     id: `std-row-${idVal}`,
@@ -240,7 +240,7 @@ export function officialRowToStudent(
     motherNamePart: motherName,
     academicGradeText: academicGradeText || gradeName,
     sectionNameText,
-    shift: shift || "صباحي",
+    shift: (shift && (shift.includes("مسائي") || shift.includes("الثاني"))) ? "الفوج الثاني (مسائي)" : "الفوج الأول (صباحي)",
     birthDateRaw,
     birthPlaceText,
     residencePlace,
