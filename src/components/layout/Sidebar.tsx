@@ -9,11 +9,13 @@ import {
   Calendar,
   ClipboardCheck,
   BarChart2,
-  FolderLock,
   Settings,
   X,
   Bus,
   Library,
+  DollarSign,
+  Layers,
+  ShieldAlert,
 } from "lucide-react";
 
 export type TabType = ActiveModule;
@@ -41,17 +43,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     onClose();
   };
 
-  // Vertical navigation menu items matching the image right sidebar exactly:
-  // 1. الرئيسية (Home)
-  // 2. الدرجات (Grades)
-  // 3. الطلاب (Students)
-  // 4. الكادر التدريسي (Staff / Teachers)
-  // 5. الجدول الأسبوعي (Weekly Timetable)
-  // 6. الغياب والحضور (Attendance)
-  // 7. التقارير والإحصائيات (Reports & Stats)
-  // 8. الملفات والإعدادات (Files & Settings / School)
-  // 9. الإعدادات (Settings)
-  // 10. المواصلات وحافلات GPS (Transportation)
+  // Structured, non-redundant primary administrative menu:
   const menuItems = [
     {
       id: "dashboard" as TabType,
@@ -59,9 +51,19 @@ export const Sidebar: React.FC<SidebarProps> = ({
       icon: Home,
     },
     {
-      id: "exams" as TabType,
-      label: "الدرجات",
-      icon: BookOpen,
+      id: "portal_hub" as TabType,
+      label: "بوابات النظام الأربعة",
+      icon: Layers,
+    },
+    {
+      id: "students" as TabType,
+      label: "الطلاب وقيد القبول",
+      icon: Users,
+    },
+    {
+      id: "staff" as TabType,
+      label: "الكادر التدريسي والتوكيل",
+      icon: GraduationCap,
     },
     {
       id: "subjects" as TabType,
@@ -69,19 +71,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
       icon: Library,
     },
     {
-      id: "students" as TabType,
-      label: "الطلاب",
-      icon: Users,
-    },
-    {
-      id: "staff" as TabType,
-      label: "الكادر التدريسي",
-      icon: GraduationCap,
-    },
-    {
-      id: "portal_teacher" as TabType,
-      label: "بوابة المعلم (دخول الكادر)",
+      id: "exams" as TabType,
+      label: "الدرجات والاختبارات",
       icon: BookOpen,
+    },
+    {
+      id: "attendance" as TabType,
+      label: "الغياب والحضور والسلوك",
+      icon: ClipboardCheck,
     },
     {
       id: "timetable" as TabType,
@@ -89,9 +86,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
       icon: Calendar,
     },
     {
-      id: "attendance" as TabType,
-      label: "الغياب والحضور",
-      icon: ClipboardCheck,
+      id: "transport" as TabType,
+      label: "المواصلات وحافلات GPS",
+      icon: Bus,
+    },
+    {
+      id: "finance" as TabType,
+      label: "الشؤون المالية والأقساط",
+      icon: DollarSign,
     },
     {
       id: "reports" as TabType,
@@ -99,18 +101,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
       icon: BarChart2,
     },
     {
-      id: "school" as TabType,
-      label: "الملفات والإعدادات",
-      icon: FolderLock,
-    },
-    {
-      id: "transport" as TabType,
-      label: "المواصلات وحافلات GPS",
-      icon: Bus,
-    },
-    {
       id: "settings" as TabType,
-      label: "الإعدادات",
+      label: "إعدادات وهوية المدرسة",
       icon: Settings,
     },
   ];

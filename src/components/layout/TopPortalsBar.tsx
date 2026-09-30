@@ -1,24 +1,19 @@
 import React, { useState } from "react";
 import { useSchool } from "../../context/SchoolContext";
 import {
-  ShieldAlert,
   Users,
   GraduationCap,
   Bus,
   Link as LinkIcon,
-  Plus,
   BookOpen,
-  Share2,
-  ExternalLink,
+  ArrowRight,
+  LogOut,
+  Sliders,
   ChevronDown,
   ChevronUp,
-  Sparkles,
-  Key,
   MapPin,
-  CheckCircle2,
-  Send,
-  Sliders,
-  Layers,
+  ExternalLink,
+  ShieldAlert,
 } from "lucide-react";
 
 export const TopPortalsBar: React.FC = () => {
@@ -31,359 +26,247 @@ export const TopPortalsBar: React.FC = () => {
     students,
     staff,
     busRoutes,
-    subjects,
+    activeDirectStudentId,
+    activeDirectTeacherId,
   } = useSchool();
 
-  const [isQuickControlOpen, setIsQuickControlOpen] = useState(false);
+  const [isManagerQuickOpen, setIsManagerQuickOpen] = useState(false);
 
-  // Active portal determination
-  const isSuperAdmin =
+  // If on the portal hub selection page, hide the top portal bar to keep the page ultra-clean
+  if (activeModule === "portal_hub") {
+    return null;
+  }
+
+  // Determine current active portal
+  const isParentPortal = activeModule === "portal_parent";
+  const isTeacherPortal = activeModule === "portal_teacher";
+  const isDriverPortal = activeModule === "portal_bus_supervisor";
+  const isManagerPortal =
     activeModule === "portal_super_admin" ||
-    (currentUser.role === "super_admin" && activeModule === "dashboard");
-  const isParent =
-    activeModule === "portal_parent" || currentUser.role === "parent";
-  const isTeacher =
-    activeModule === "portal_teacher" || currentUser.role === "teacher";
-  const isDriver =
-    activeModule === "portal_bus_supervisor" || currentUser.role === "bus_supervisor";
+    currentUser.role === "super_admin" ||
+    currentUser.role === "principal";
 
-  const handleSelectPortal = (
-    portal: "super_admin" | "parent" | "teacher" | "driver"
-  ) => {
-    switch (portal) {
-      case "super_admin":
-        switchUserRole("super_admin");
-        setActiveModule("portal_super_admin");
-        break;
-      case "parent":
-        switchUserRole("parent");
-        setActiveModule("portal_parent");
-        break;
-      case "teacher":
-        switchUserRole("teacher");
-        setActiveModule("portal_teacher");
-        break;
-      case "driver":
-        switchUserRole("bus_supervisor");
-        setActiveModule("portal_bus_supervisor");
-        break;
-    }
+  // Resolve active student for parent view
+  const currentStudent =
+    (activeDirectStudentId && students.find((s) => s.id === activeDirectStudentId)) ||
+    (currentUser.linkedStudentId && students.find((s) => s.id === currentUser.linkedStudentId)) ||
+    students[0];
+
+  // Resolve active teacher for teacher view
+  const currentTeacher =
+    (activeDirectTeacherId && staff.find((s) => s.id === activeDirectTeacherId)) ||
+    staff.find((s) => s.role === "teacher") ||
+    staff[1];
+
+  // Resolve current bus route for driver view
+  const currentRoute = busRoutes[0];
+
+  const handleExitToPortalHub = () => {
+    setActiveModule("portal_hub");
   };
 
-  const isManagerUser =
-    currentUser.role === "super_admin" ||
-    currentUser.role === "principal" ||
-    isSuperAdmin;
-
-  return (
-    <div className="bg-gradient-to-b from-slate-900 via-slate-850 to-slate-900 border-b border-slate-700/80 shadow-lg text-white select-none">
-      <div className="max-w-[1600px] mx-auto px-2 sm:px-4 py-2">
-        {/* Main 4 Portals Row */}
-        <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-2.5">
-          {/* Label & Indicator */}
-          <div className="flex items-center justify-between sm:justify-start gap-2 shrink-0">
-            <div className="flex items-center gap-1.5 bg-slate-800/90 border border-slate-700 px-2.5 py-1 rounded-lg">
-              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-              <span className="text-[11px] font-bold text-slate-200">
-                بوابات النظام الأربعة:
-              </span>
+  /* ========================================================
+     1. PARENT PORTAL TOP BAR (All other 3 portals hidden)
+     ======================================================== */
+  if (isParentPortal) {
+    return (
+      <div className="bg-gradient-to-r from-purple-950 via-purple-900 to-slate-900 border-b border-purple-800/60 text-white shadow-md select-none">
+        <div className="max-w-[1600px] mx-auto px-3 sm:px-5 py-2.5 flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
+            <div className="w-8 h-8 rounded-xl bg-purple-600 text-white flex items-center justify-center font-bold text-base shadow-xs shrink-0">
+              👨‍👩‍👧
             </div>
-
-            {isManagerUser && (
-              <button
-                type="button"
-                onClick={() => setIsQuickControlOpen(!isQuickControlOpen)}
-                className={`text-[10px] sm:text-xs font-bold px-2 py-1 rounded-lg border transition-all flex items-center gap-1 cursor-pointer ${
-                  isQuickControlOpen
-                    ? "bg-amber-500 text-slate-950 border-amber-400 shadow-xs"
-                    : "bg-slate-800 text-amber-300 border-amber-500/40 hover:bg-slate-700"
-                }`}
-                title="إظهار لوحة التحكم السريعة للمدير"
-              >
-                <Sliders className="w-3 h-3" />
-                <span>تحكم المدير</span>
-                {isQuickControlOpen ? (
-                  <ChevronUp className="w-3 h-3" />
-                ) : (
-                  <ChevronDown className="w-3 h-3" />
-                )}
-              </button>
-            )}
+            <div className="min-w-0">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="font-black text-xs sm:text-sm text-purple-200">
+                  بوابة ولي الأمر
+                </span>
+                <span className="text-[10px] px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-300 border border-purple-400/30 font-bold">
+                  متابعة الطالب المعتمدة
+                </span>
+              </div>
+              <p className="text-[11px] text-purple-200/90 truncate mt-0.5">
+                الطالب: <strong className="text-white">{currentStudent?.fullName}</strong> • رقم القيد: <span className="font-mono text-purple-100">{currentStudent?.studentNumber}</span>
+              </p>
+            </div>
           </div>
 
-          {/* Four Portals Grid */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 sm:gap-2 flex-1">
-            {/* 1. Portal: Manager / Principal */}
-            <button
-              type="button"
-              onClick={() => handleSelectPortal("super_admin")}
-              className={`group relative text-right p-2 sm:p-2.5 rounded-xl border transition-all duration-200 flex flex-col justify-between cursor-pointer ${
-                isSuperAdmin
-                  ? "bg-gradient-to-r from-amber-600/30 to-amber-500/20 border-amber-400 shadow-md shadow-amber-500/10 ring-1 ring-amber-400/50"
-                  : "bg-slate-800/60 hover:bg-slate-800 border-slate-700/80 hover:border-amber-400/50 text-slate-300"
-              }`}
-            >
-              <div className="flex items-center justify-between gap-1 w-full mb-1">
-                <div className="flex items-center gap-1.5 min-w-0">
-                  <div
-                    className={`w-6 h-6 rounded-lg flex items-center justify-center shrink-0 font-bold text-xs ${
-                      isSuperAdmin
-                        ? "bg-amber-500 text-slate-950 shadow-xs"
-                        : "bg-slate-700 text-amber-300 group-hover:bg-amber-500 group-hover:text-slate-950 transition-colors"
-                    }`}
-                  >
-                    👑
-                  </div>
-                  <span
-                    className={`text-xs font-black truncate ${
-                      isSuperAdmin ? "text-amber-300" : "text-white"
-                    }`}
-                  >
-                    1. بوابة المدير
-                  </span>
-                </div>
-                <span
-                  className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full shrink-0 ${
-                    isSuperAdmin
-                      ? "bg-amber-400/20 text-amber-200 border border-amber-400/40"
-                      : "bg-slate-700/60 text-slate-400"
-                  }`}
-                >
-                  تحكم شامل
+          <button
+            type="button"
+            onClick={handleExitToPortalHub}
+            className="px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-bold border border-white/20 transition-all flex items-center gap-1.5 shrink-0 cursor-pointer shadow-xs"
+            title="الرجوع إلى بوابات الدخول الرئيسية"
+          >
+            <LogOut className="w-3.5 h-3.5" />
+            <span>تبديل البوابة / خروج</span>
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  /* ========================================================
+     2. TEACHER PORTAL TOP BAR (All other 3 portals hidden)
+     ======================================================== */
+  if (isTeacherPortal) {
+    return (
+      <div className="bg-gradient-to-r from-blue-950 via-blue-900 to-slate-900 border-b border-blue-800/60 text-white shadow-md select-none">
+        <div className="max-w-[1600px] mx-auto px-3 sm:px-5 py-2.5 flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
+            <div className="w-8 h-8 rounded-xl bg-blue-600 text-white flex items-center justify-center font-bold text-base shadow-xs shrink-0">
+              👨‍🏫
+            </div>
+            <div className="min-w-0">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="font-black text-xs sm:text-sm text-blue-200">
+                  بوابة المعلم
+                </span>
+                <span className="text-[10px] px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-300 border border-blue-400/30 font-bold">
+                  الصفوف والمواد الموكلة فقط
                 </span>
               </div>
-              <p className="text-[10px] text-slate-400 group-hover:text-slate-200 transition-colors truncate">
-                صلاحيات كاملة وتوكيل الكادر
+              <p className="text-[11px] text-blue-200/90 truncate mt-0.5">
+                المعلم: <strong className="text-white">{currentTeacher?.fullName}</strong> • المواد الموكلة: <span className="text-blue-100">{currentTeacher?.teachingSubjects?.join("، ") || "معلم معتمد"}</span>
               </p>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onClick={handleExitToPortalHub}
+            className="px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-bold border border-white/20 transition-all flex items-center gap-1.5 shrink-0 cursor-pointer shadow-xs"
+            title="الرجوع إلى بوابات الدخول الرئيسية"
+          >
+            <LogOut className="w-3.5 h-3.5" />
+            <span>تبديل البوابة / خروج</span>
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  /* ========================================================
+     3. DRIVER PORTAL TOP BAR (All other 3 portals hidden)
+     ======================================================== */
+  if (isDriverPortal) {
+    return (
+      <div className="bg-gradient-to-r from-amber-950 via-slate-900 to-slate-900 border-b border-amber-600/40 text-white shadow-md select-none">
+        <div className="max-w-[1600px] mx-auto px-3 sm:px-5 py-2.5 flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
+            <div className="w-8 h-8 rounded-xl bg-amber-500 text-slate-950 flex items-center justify-center font-bold text-base shadow-xs shrink-0">
+              🚌
+            </div>
+            <div className="min-w-0">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="font-black text-xs sm:text-sm text-amber-300">
+                  بوابة السائق والنقل المدرسي
+                </span>
+                <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-400/30 font-bold flex items-center gap-1">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                  <span>تحديد الموقع آلياً GPS</span>
+                </span>
+              </div>
+              <p className="text-[11px] text-slate-300 truncate mt-0.5">
+                المسار: <strong className="text-white">{currentRoute?.name}</strong> • رقم الحافلة: <span className="font-mono text-amber-200">{currentRoute?.busPlate || "104"}</span>
+              </p>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onClick={handleExitToPortalHub}
+            className="px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-bold border border-white/20 transition-all flex items-center gap-1.5 shrink-0 cursor-pointer shadow-xs"
+            title="الرجوع إلى بوابات الدخول الرئيسية"
+          >
+            <LogOut className="w-3.5 h-3.5" />
+            <span>تبديل البوابة / خروج</span>
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  /* ========================================================
+     4. GENERAL MANAGER / SUPER ADMIN TOP BAR
+     (Clean command strip, other 3 portals hidden)
+     ======================================================== */
+  return (
+    <div className="bg-gradient-to-r from-slate-900 via-slate-850 to-slate-900 border-b border-slate-700/80 text-white shadow-md select-none">
+      <div className="max-w-[1600px] mx-auto px-3 sm:px-5 py-2">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2.5">
+          {/* Identity & Status */}
+          <div className="flex items-center gap-2.5">
+            <div className="w-7 h-7 rounded-lg bg-amber-500 text-slate-950 flex items-center justify-center font-bold text-sm shadow-xs shrink-0">
+              👑
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="font-black text-xs sm:text-sm text-amber-300">
+                  بوابة المدير العام (إدارة المدرسة)
+                </span>
+                <span className="text-[10px] px-2 py-0.2 rounded-full bg-amber-400/20 text-amber-200 border border-amber-400/30 font-bold">
+                  تحكم كامل بجميع الصلاحيات
+                </span>
+              </div>
+              <p className="text-[10.5px] text-slate-400 mt-0.2">
+                إضافة الكادر وتوكيل الصفوف والمواد، تسجيل الطلاب، النقل، وإصدار الروابط
+              </p>
+            </div>
+          </div>
+
+          {/* Action buttons (Clean, no repetition) */}
+          <div className="flex flex-wrap items-center gap-1.5 w-full sm:w-auto justify-end">
+            <button
+              type="button"
+              onClick={() => setActiveModule("staff")}
+              className="px-2.5 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-[11px] font-bold shadow-xs transition-colors flex items-center gap-1 cursor-pointer"
+              title="إضافة وتوكيل المعلمين"
+            >
+              <Users className="w-3.5 h-3.5" />
+              <span>+ توكيل معلم</span>
             </button>
 
-            {/* 2. Portal: Parent */}
             <button
               type="button"
-              onClick={() => handleSelectPortal("parent")}
-              className={`group relative text-right p-2 sm:p-2.5 rounded-xl border transition-all duration-200 flex flex-col justify-between cursor-pointer ${
-                isParent
-                  ? "bg-gradient-to-r from-purple-600/30 to-purple-500/20 border-purple-400 shadow-md shadow-purple-500/10 ring-1 ring-purple-400/50"
-                  : "bg-slate-800/60 hover:bg-slate-800 border-slate-700/80 hover:border-purple-400/50 text-slate-300"
-              }`}
+              onClick={() => setActiveModule("students")}
+              className="px-2.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-[11px] font-bold shadow-xs transition-colors flex items-center gap-1 cursor-pointer"
+              title="إضافة طالب وتوليد رقم خاص به"
             >
-              <div className="flex items-center justify-between gap-1 w-full mb-1">
-                <div className="flex items-center gap-1.5 min-w-0">
-                  <div
-                    className={`w-6 h-6 rounded-lg flex items-center justify-center shrink-0 font-bold text-xs ${
-                      isParent
-                        ? "bg-purple-500 text-white shadow-xs"
-                        : "bg-slate-700 text-purple-300 group-hover:bg-purple-500 group-hover:text-white transition-colors"
-                    }`}
-                  >
-                    👨‍👩‍👧
-                  </div>
-                  <span
-                    className={`text-xs font-black truncate ${
-                      isParent ? "text-purple-300" : "text-white"
-                    }`}
-                  >
-                    2. بوابة ولي الأمر
-                  </span>
-                </div>
-                <span
-                  className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full shrink-0 ${
-                    isParent
-                      ? "bg-purple-400/20 text-purple-200 border border-purple-400/40"
-                      : "bg-slate-700/60 text-slate-400"
-                  }`}
-                >
-                  برقم الطالب
-                </span>
-              </div>
-              <p className="text-[10px] text-slate-400 group-hover:text-slate-200 transition-colors truncate">
-                متابعة الدرجات والغياب والباص
-              </p>
+              <GraduationCap className="w-3.5 h-3.5" />
+              <span>+ إضافة طالب</span>
             </button>
 
-            {/* 3. Portal: Teacher */}
             <button
               type="button"
-              onClick={() => handleSelectPortal("teacher")}
-              className={`group relative text-right p-2 sm:p-2.5 rounded-xl border transition-all duration-200 flex flex-col justify-between cursor-pointer ${
-                isTeacher
-                  ? "bg-gradient-to-r from-blue-600/30 to-blue-500/20 border-blue-400 shadow-md shadow-blue-500/10 ring-1 ring-blue-400/50"
-                  : "bg-slate-800/60 hover:bg-slate-800 border-slate-700/80 hover:border-blue-400/50 text-slate-300"
-              }`}
+              onClick={() => setActiveModule("subjects")}
+              className="px-2.5 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-[11px] font-bold shadow-xs transition-colors flex items-center gap-1 cursor-pointer"
+              title="إدارة وإضافة مواد تعليمية مفتوحة"
             >
-              <div className="flex items-center justify-between gap-1 w-full mb-1">
-                <div className="flex items-center gap-1.5 min-w-0">
-                  <div
-                    className={`w-6 h-6 rounded-lg flex items-center justify-center shrink-0 font-bold text-xs ${
-                      isTeacher
-                        ? "bg-blue-500 text-white shadow-xs"
-                        : "bg-slate-700 text-blue-300 group-hover:bg-blue-500 group-hover:text-white transition-colors"
-                    }`}
-                  >
-                    👨‍🏫
-                  </div>
-                  <span
-                    className={`text-xs font-black truncate ${
-                      isTeacher ? "text-blue-300" : "text-white"
-                    }`}
-                  >
-                    3. بوابة المعلم
-                  </span>
-                </div>
-                <span
-                  className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full shrink-0 ${
-                    isTeacher
-                      ? "bg-blue-400/20 text-blue-200 border border-blue-400/40"
-                      : "bg-slate-700/60 text-slate-400"
-                  }`}
-                >
-                  صفوفه الموكلة
-                </span>
-              </div>
-              <p className="text-[10px] text-slate-400 group-hover:text-slate-200 transition-colors truncate">
-                دخول برمز المعلم ورصد الدرجات
-              </p>
+              <BookOpen className="w-3.5 h-3.5" />
+              <span>+ مواد مفتوحة</span>
             </button>
 
-            {/* 4. Portal: Driver */}
             <button
               type="button"
-              onClick={() => handleSelectPortal("driver")}
-              className={`group relative text-right p-2 sm:p-2.5 rounded-xl border transition-all duration-200 flex flex-col justify-between cursor-pointer ${
-                isDriver
-                  ? "bg-gradient-to-r from-amber-600/30 to-amber-500/20 border-amber-400 shadow-md shadow-amber-500/10 ring-1 ring-amber-400/50"
-                  : "bg-slate-800/60 hover:bg-slate-800 border-slate-700/80 hover:border-amber-400/50 text-slate-300"
-              }`}
+              onClick={() => openSmartLinksModal()}
+              className="px-2.5 py-1.5 rounded-lg bg-purple-600 hover:bg-purple-500 text-white text-[11px] font-bold shadow-xs transition-colors flex items-center gap-1 cursor-pointer"
+              title="إنشاء وإرسال روابط وأرقام الدخول المباشرة"
             >
-              <div className="flex items-center justify-between gap-1 w-full mb-1">
-                <div className="flex items-center gap-1.5 min-w-0">
-                  <div
-                    className={`w-6 h-6 rounded-lg flex items-center justify-center shrink-0 font-bold text-xs ${
-                      isDriver
-                        ? "bg-amber-400 text-slate-950 shadow-xs"
-                        : "bg-slate-700 text-amber-300 group-hover:bg-amber-400 group-hover:text-slate-950 transition-colors"
-                    }`}
-                  >
-                    🚌
-                  </div>
-                  <span
-                    className={`text-xs font-black truncate ${
-                      isDriver ? "text-amber-300" : "text-white"
-                    }`}
-                  >
-                    4. بوابة السائق
-                  </span>
-                </div>
-                <span
-                  className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full shrink-0 ${
-                    isDriver
-                      ? "bg-amber-400/20 text-amber-200 border border-amber-400/40"
-                      : "bg-slate-700/60 text-slate-400"
-                  }`}
-                >
-                  GPS آلي
-                </span>
-              </div>
-              <p className="text-[10px] text-slate-400 group-hover:text-slate-200 transition-colors truncate">
-                مواقع الطلاب والتتبع الملاحي
-              </p>
+              <LinkIcon className="w-3.5 h-3.5" />
+              <span>إرسال الروابط (واتساب)</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={handleExitToPortalHub}
+              className="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-600 text-[11px] font-bold transition-colors flex items-center gap-1 cursor-pointer"
+              title="الانتقال إلى بوابات الدخول الأربعة المستقلة"
+            >
+              <ArrowRight className="w-3.5 h-3.5" />
+              <span>البوابات الأربعة</span>
             </button>
           </div>
         </div>
-
-        {/* Manager Quick Command Bar (Accessible when toggled or in Manager Mode) */}
-        {isQuickControlOpen && (
-          <div className="mt-2.5 pt-2.5 border-t border-slate-700/80 animate-in fade-in slide-in-from-top-1 duration-150">
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 bg-slate-800/90 p-2 sm:p-2.5 rounded-xl border border-amber-500/30">
-              <div className="flex items-center gap-2 text-xs">
-                <span className="w-6 h-6 rounded-lg bg-amber-500 text-slate-950 flex items-center justify-center font-bold text-xs">
-                  ⚙️
-                </span>
-                <div>
-                  <div className="font-bold text-amber-300 flex items-center gap-1.5">
-                    <span>صلاحيات المدير الكاملة للتحكم بالبوابات</span>
-                    <span className="text-[10px] px-1.5 py-0.2 rounded bg-amber-400/20 text-amber-200 border border-amber-400/30">
-                      Super Admin
-                    </span>
-                  </div>
-                  <div className="text-[10.5px] text-slate-300">
-                    أضف كادراً ووكلهم بصفوف ومواد، أضف طلاباً وسائقين، وولد أرقام وروابط الدخول المباشرة.
-                  </div>
-                </div>
-              </div>
-
-              {/* Action Buttons */}
-              <div className="flex flex-wrap items-center gap-1.5 w-full sm:w-auto justify-end">
-                {/* 1. Add/Assign Teacher */}
-                <button
-                  type="button"
-                  onClick={() => {
-                    switchUserRole("super_admin");
-                    setActiveModule("staff");
-                  }}
-                  className="px-2.5 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-[11px] font-bold shadow-xs transition-colors flex items-center gap-1 cursor-pointer"
-                  title="إضافة معلم وتوكيله بصفوف ومواد محددة"
-                >
-                  <Users className="w-3.5 h-3.5" />
-                  <span>+ توكيل معلم بصفوف ومواد</span>
-                </button>
-
-                {/* 2. Add Student */}
-                <button
-                  type="button"
-                  onClick={() => {
-                    switchUserRole("super_admin");
-                    setActiveModule("students");
-                  }}
-                  className="px-2.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-[11px] font-bold shadow-xs transition-colors flex items-center gap-1 cursor-pointer"
-                  title="إضافة طالب وتوليد رقمه الخاص"
-                >
-                  <GraduationCap className="w-3.5 h-3.5" />
-                  <span>+ إضافة طالب ورقم خاص</span>
-                </button>
-
-                {/* 3. Add Driver */}
-                <button
-                  type="button"
-                  onClick={() => {
-                    switchUserRole("super_admin");
-                    setActiveModule("transport");
-                  }}
-                  className="px-2.5 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-500 text-slate-950 font-bold text-[11px] shadow-xs transition-colors flex items-center gap-1 cursor-pointer"
-                  title="إضافة سائق ومسار حافلة"
-                >
-                  <Bus className="w-3.5 h-3.5" />
-                  <span>+ إضافة سائق وحافلة</span>
-                </button>
-
-                {/* 4. Open Subjects Management */}
-                <button
-                  type="button"
-                  onClick={() => {
-                    switchUserRole("super_admin");
-                    setActiveModule("subjects");
-                  }}
-                  className="px-2.5 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-[11px] font-bold shadow-xs transition-colors flex items-center gap-1 cursor-pointer"
-                  title="إدارة وإضافة مواد تعليمية مفتوحة"
-                >
-                  <BookOpen className="w-3.5 h-3.5" />
-                  <span>+ مواد تعليمية مفتوحة</span>
-                </button>
-
-                {/* 5. Dispatch Links & Numbers */}
-                <button
-                  type="button"
-                  onClick={() => openSmartLinksModal()}
-                  className="px-2.5 py-1.5 rounded-lg bg-purple-600 hover:bg-purple-500 text-white text-[11px] font-bold shadow-xs transition-colors flex items-center gap-1 cursor-pointer"
-                  title="إنشاء وإرسال روابط وأرقام الدخول لأولياء الأمور والمعلمين"
-                >
-                  <LinkIcon className="w-3.5 h-3.5" />
-                  <span>إرسال أرقام وروابط الدخول (واتساب)</span>
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
       </div>
     </div>
   );

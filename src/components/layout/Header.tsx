@@ -29,7 +29,15 @@ export const Header: React.FC<HeaderProps> = ({ onToggleSidebar }) => {
     schoolInfo,
     updateSchoolInfo,
     unreadPushCount,
+    activeModule,
+    setActiveModule,
   } = useSchool();
+
+  const isPortalIsolated =
+    activeModule === "portal_parent" ||
+    activeModule === "portal_teacher" ||
+    activeModule === "portal_bus_supervisor" ||
+    activeModule === "portal_hub";
 
   const [showRoleMenu, setShowRoleMenu] = useState(false);
   const [showEditSchoolModal, setShowEditSchoolModal] = useState(false);
@@ -124,13 +132,15 @@ export const Header: React.FC<HeaderProps> = ({ onToggleSidebar }) => {
         <div className="px-3 sm:px-4 py-2 flex items-center justify-between gap-2 sm:gap-4 flex-wrap">
           {/* RIGHT SIDE (in RTL): Menu Toggle + School Name & Badge */}
           <div className="flex items-center gap-3 sm:gap-4 order-1">
-            <button
-              onClick={onToggleSidebar}
-              className="p-1 rounded text-white/90 hover:text-white hover:bg-white/10 lg:hidden cursor-pointer"
-              title="القائمة الجانبية"
-            >
-              <Menu className="w-6 h-6" />
-            </button>
+            {!isPortalIsolated && (
+              <button
+                onClick={onToggleSidebar}
+                className="p-1 rounded text-white/90 hover:text-white hover:bg-white/10 lg:hidden cursor-pointer"
+                title="القائمة الجانبية"
+              >
+                <Menu className="w-6 h-6" />
+              </button>
+            )}
 
             {/* School / System Identity */}
             <div className="flex items-center gap-2 group">
@@ -341,53 +351,68 @@ export const Header: React.FC<HeaderProps> = ({ onToggleSidebar }) => {
                   </div>
 
                   <div className="py-1">
-                    {userProfiles.map((user) => (
+                    {isPortalIsolated ? (
                       <button
-                        key={user.id}
                         onClick={() => {
-                          switchRole(user.role);
+                          setActiveModule("portal_hub");
                           setShowRoleMenu(false);
                         }}
-                        className={`w-full text-right px-3 py-1.5 rounded-lg text-xs flex items-center gap-2 transition-colors cursor-pointer ${
-                          currentUser.role === user.role
-                            ? "bg-sky-50 text-sky-900 font-bold"
-                            : "hover:bg-slate-50 text-slate-700"
-                        }`}
+                        className="w-full text-right px-3 py-2 rounded-lg text-xs font-bold text-rose-700 hover:bg-rose-50 flex items-center justify-between transition-colors cursor-pointer"
                       >
-                        <div className="w-5 h-5 rounded-full bg-slate-200 overflow-hidden shrink-0">
-                          <img
-                            src={user.avatar}
-                            alt=""
-                            className="w-full h-full object-cover"
-                          />
-                        </div>
-                        <span className="truncate">{user.fullName}</span>
+                        <span>تسجيل الخروج من البوابة</span>
+                        <span>🚪</span>
                       </button>
-                    ))}
+                    ) : (
+                      userProfiles.map((user) => (
+                        <button
+                          key={user.id}
+                          onClick={() => {
+                            switchRole(user.role);
+                            setShowRoleMenu(false);
+                          }}
+                          className={`w-full text-right px-3 py-1.5 rounded-lg text-xs flex items-center gap-2 transition-colors cursor-pointer ${
+                            currentUser.role === user.role
+                              ? "bg-sky-50 text-sky-900 font-bold"
+                              : "hover:bg-slate-50 text-slate-700"
+                          }`}
+                        >
+                          <div className="w-5 h-5 rounded-full bg-slate-200 overflow-hidden shrink-0">
+                            <img
+                              src={user.avatar}
+                              alt=""
+                              className="w-full h-full object-cover"
+                            />
+                          </div>
+                          <span className="truncate">{user.fullName}</span>
+                        </button>
+                      ))
+                    )}
                   </div>
 
-                  <div className="border-t border-slate-100 pt-1 mt-1">
-                    <button
-                      onClick={() => {
-                        setShowRoleMenu(false);
-                        openModal("branding");
-                      }}
-                      className="w-full text-right px-3 py-1.5 rounded-lg text-xs font-bold text-sky-700 hover:bg-sky-50 flex items-center gap-2 cursor-pointer"
-                    >
-                      <Camera className="w-3.5 h-3.5" />
-                      <span>تغيير لوغو وشعار المدرسة</span>
-                    </button>
-                    <button
-                      onClick={() => {
-                        setShowRoleMenu(false);
-                        openModal("school");
-                      }}
-                      className="w-full text-right px-3 py-1.5 rounded-lg text-xs font-bold text-slate-700 hover:bg-slate-50 flex items-center gap-2 cursor-pointer"
-                    >
-                      <Edit3 className="w-3.5 h-3.5" />
-                      <span>تعديل بيانات المدرسة والتربية</span>
-                    </button>
-                  </div>
+                  {!isPortalIsolated && (
+                    <div className="border-t border-slate-100 pt-1 mt-1">
+                      <button
+                        onClick={() => {
+                          setShowRoleMenu(false);
+                          openModal("branding");
+                        }}
+                        className="w-full text-right px-3 py-1.5 rounded-lg text-xs font-bold text-sky-700 hover:bg-sky-50 flex items-center gap-2 cursor-pointer"
+                      >
+                        <Camera className="w-3.5 h-3.5" />
+                        <span>تغيير لوغو وشعار المدرسة</span>
+                      </button>
+                      <button
+                        onClick={() => {
+                          setShowRoleMenu(false);
+                          openModal("school");
+                        }}
+                        className="w-full text-right px-3 py-1.5 rounded-lg text-xs font-bold text-slate-700 hover:bg-slate-50 flex items-center gap-2 cursor-pointer"
+                      >
+                        <Edit3 className="w-3.5 h-3.5" />
+                        <span>تعديل بيانات المدرسة والتربية</span>
+                      </button>
+                    </div>
+                  )}
                 </div>
               )}
             </div>

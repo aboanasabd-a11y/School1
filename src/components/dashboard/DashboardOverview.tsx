@@ -16,6 +16,7 @@ import {
   Sparkles,
   Link as LinkIcon,
   ChevronLeft,
+  Library,
 } from "lucide-react";
 import { TabType } from "../layout/Sidebar";
 import { EditSchoolModal } from "../common/EditSchoolModal";
@@ -139,13 +140,13 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({ setActiveT
       ),
     },
     {
-      id: "school" as TabType,
-      title: "الملفات والإعدادات",
-      subtitle: "إدارة الملفات المدرسية",
-      iconBg: "bg-amber-50 text-amber-600 border-amber-200",
+      id: "subjects" as TabType,
+      title: "المناهج والمواد",
+      subtitle: "المواد التعليمية المفتوحة",
+      iconBg: "bg-indigo-50 text-indigo-600 border-indigo-200",
       customIcon: (
-        <div className="w-12 h-12 rounded-xl bg-amber-500 text-white flex items-center justify-center shadow-sm">
-          <FolderLock className="w-7 h-7" />
+        <div className="w-12 h-12 rounded-xl bg-indigo-600 text-white flex items-center justify-center shadow-sm">
+          <Library className="w-7 h-7" />
         </div>
       ),
     },

@@ -1,5 +1,6 @@
 export type ActiveModule =
   | 'dashboard'
+  | 'portal_hub'
   | 'school'
   | 'subjects'
   | 'students'

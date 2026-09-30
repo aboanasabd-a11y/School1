@@ -21,6 +21,7 @@ import { TeacherPortal } from "./components/portals/TeacherPortal";
 import { AccountantPortal } from "./components/portals/AccountantPortal";
 import { ParentPortal } from "./components/portals/ParentPortal";
 import { BusSupervisorPortal } from "./components/portals/BusSupervisorPortal";
+import { PortalsGatewayHub } from "./components/portals/PortalsGatewayHub";
 import { SmartLinksModal } from "./components/links/SmartLinksModal";
 import { PushNotificationToast } from "./components/common/PushNotificationToast";
 
@@ -38,6 +39,8 @@ const MainContent: React.FC = () => {
   const renderActiveView = () => {
     switch (activeModule) {
       // 5 Independent Role Portals
+      case "portal_hub":
+        return <PortalsGatewayHub />;
       case "portal_super_admin":
         return <GeneralManagerPortal />;
       case "portal_teacher":
@@ -89,10 +92,18 @@ const MainContent: React.FC = () => {
     }
   };
 
+  const isPortalIsolated =
+    activeModule === "portal_parent" ||
+    activeModule === "portal_teacher" ||
+    activeModule === "portal_bus_supervisor" ||
+    activeModule === "portal_hub";
+
   return (
     <div className="flex h-screen bg-slate-50 overflow-hidden font-sans text-slate-900" dir="rtl">
-      {/* Sidebar Navigation */}
-      <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
+      {/* Sidebar Navigation - only visible for administrative modules */}
+      {!isPortalIsolated && (
+        <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
+      )}
 
       {/* Main Container */}
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden h-full">

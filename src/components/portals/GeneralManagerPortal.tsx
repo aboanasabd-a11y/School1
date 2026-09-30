@@ -389,10 +389,13 @@ export const GeneralManagerPortal: React.FC = () => {
                   </td>
                   <td>
                     <button
-                      onClick={() => switchUserRole("teacher")}
-                      className="text-xs bg-blue-600 hover:bg-blue-700 text-white px-2.5 py-1 rounded font-bold"
+                      onClick={() => {
+                        switchUserRole("teacher");
+                        setActiveModule("portal_teacher");
+                      }}
+                      className="text-xs bg-blue-600 hover:bg-blue-700 text-white px-2.5 py-1 rounded font-bold cursor-pointer"
                     >
-                      تجربة كمعلم
+                      دخول بوابة المعلم
                     </button>
                   </td>
                 </tr>
@@ -420,10 +423,13 @@ export const GeneralManagerPortal: React.FC = () => {
                   </td>
                   <td>
                     <button
-                      onClick={() => switchUserRole("accountant")}
-                      className="text-xs bg-indigo-600 hover:bg-indigo-700 text-white px-2.5 py-1 rounded font-bold"
+                      onClick={() => {
+                        switchUserRole("accountant");
+                        setActiveModule("portal_accountant");
+                      }}
+                      className="text-xs bg-indigo-600 hover:bg-indigo-700 text-white px-2.5 py-1 rounded font-bold cursor-pointer"
                     >
-                      تجربة كمحاسب
+                      دخول بوابة المحاسب
                     </button>
                   </td>
                 </tr>
@@ -451,10 +457,13 @@ export const GeneralManagerPortal: React.FC = () => {
                   </td>
                   <td>
                     <button
-                      onClick={() => switchUserRole("parent")}
-                      className="text-xs bg-purple-600 hover:bg-purple-700 text-white px-2.5 py-1 rounded font-bold"
+                      onClick={() => {
+                        switchUserRole("parent");
+                        setActiveModule("portal_parent");
+                      }}
+                      className="text-xs bg-purple-600 hover:bg-purple-700 text-white px-2.5 py-1 rounded font-bold cursor-pointer"
                     >
-                      تجربة كولي أمر
+                      دخول بوابة ولي الأمر
                     </button>
                   </td>
                 </tr>
@@ -482,10 +491,13 @@ export const GeneralManagerPortal: React.FC = () => {
                   </td>
                   <td>
                     <button
-                      onClick={() => switchUserRole("bus_supervisor")}
-                      className="text-xs bg-amber-500 hover:bg-amber-600 text-slate-950 px-2.5 py-1 rounded font-bold"
+                      onClick={() => {
+                        switchUserRole("bus_supervisor");
+                        setActiveModule("portal_bus_supervisor");
+                      }}
+                      className="text-xs bg-amber-500 hover:bg-amber-600 text-slate-950 px-2.5 py-1 rounded font-bold cursor-pointer"
                     >
-                      تجربة كمشرف باص
+                      دخول بوابة السائق
                     </button>
                   </td>
                 </tr>
