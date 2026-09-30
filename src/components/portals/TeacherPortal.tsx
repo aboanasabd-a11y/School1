@@ -73,7 +73,9 @@ export const TeacherPortal: React.FC = () => {
     logoutDirectTeacher,
   } = useSchool();
 
-  // Teacher Login Form State (Username and Password)
+  // Teacher Login Form State
+  const [loginMethod, setLoginMethod] = useState<"code" | "credentials">("code");
+  const [teacherPinInput, setTeacherPinInput] = useState("");
   const [loginUsernameInput, setLoginUsernameInput] = useState("");
   const [loginPasswordInput, setLoginPasswordInput] = useState("");
   const [showLoginPassword, setShowLoginPassword] = useState(false);
@@ -87,7 +89,7 @@ export const TeacherPortal: React.FC = () => {
       (resolvedTeacherId ? null : staff.find((s) => s.role === "teacher") || staff[1])
     : null;
 
-  // Login handler
+  // Login handler via credentials
   const handleTeacherLoginSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setLoginError(null);
@@ -100,11 +102,44 @@ export const TeacherPortal: React.FC = () => {
     }
   };
 
+  // Login handler via Manager-Assigned Teacher PIN / Number
+  const handleTeacherPinSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoginError(null);
+    const cleanPin = teacherPinInput.trim().toLowerCase();
+    if (!cleanPin) {
+      setLoginError("يرجى إدخال رقم المعلم الخاص أو رمز الدخول المحدد من المدير");
+      return;
+    }
+
+    const foundTeacher = staff.find((m) => {
+      const matchEmp = m.employeeNumber && m.employeeNumber.toLowerCase() === cleanPin;
+      const matchId = m.id.toLowerCase() === cleanPin;
+      const matchNat = m.nationalId === cleanPin;
+      const cleanDigits = cleanPin.replace(/[^0-9]/g, "");
+      const phoneDigits = (m.phone || "").replace(/[^0-9]/g, "");
+      const matchPhone = cleanDigits.length >= 4 && phoneDigits.endsWith(cleanDigits);
+      const matchUser = m.username && m.username.toLowerCase() === cleanPin;
+      const matchName = m.fullName.toLowerCase() === cleanPin;
+
+      return matchEmp || matchId || matchNat || matchPhone || matchUser || matchName;
+    });
+
+    if (foundTeacher) {
+      setActiveDirectTeacherId(foundTeacher.id);
+      setIsLoggedOutManually(false);
+      setLoginError(null);
+    } else {
+      setLoginError("الرقم المدخل غير مطابق لأي معلم مسجل في النظام؛ يرجى مراجعة المدير للحصول على رقم الدخول الأكاديمي");
+    }
+  };
+
   const handleLogout = () => {
     logoutDirectTeacher();
     setIsLoggedOutManually(true);
     setLoginUsernameInput("");
     setLoginPasswordInput("");
+    setTeacherPinInput("");
   };
 
   // If not authenticated or logged out, display dedicated Teacher Login Screen
@@ -118,69 +153,140 @@ export const TeacherPortal: React.FC = () => {
         <h2 className="text-xl font-black text-center text-slate-900 mb-1">
           بوابة الكادر التعليمي - تسجيل الدخول الأكاديمي
         </h2>
-        <p className="text-xs text-center text-slate-500 mb-6 leading-relaxed max-w-md mx-auto">
-          أدخل اسم المستخدم وكلمة المرور المحددة لك للدخول إلى بوابتك؛ ستظهر لك في البوابة حصراً الصفوف والمواد الموكل بها.
+        <p className="text-xs text-center text-slate-500 mb-5 leading-relaxed max-w-md mx-auto">
+          يفتح المعلم بوابته عن طريق رقم خاص يحدده وينشئه المدير، ليرى حصراً أسماء طلاب الصفوف والمواد الموكل بها.
         </p>
 
-        <form onSubmit={handleTeacherLoginSubmit} className="space-y-4 text-xs">
-          <div>
-            <label className="block text-slate-800 font-bold mb-1 flex items-center gap-1.5">
-              <User className="w-3.5 h-3.5 text-indigo-600" />
-              <span>اسم المستخدم (Username) أو البريد الإلكتروني *</span>
-            </label>
-            <input
-              type="text"
-              required
-              placeholder="مثال: fatima.shami أو teacher.fatima أو فاطمة"
-              value={loginUsernameInput}
-              onChange={(e) => setLoginUsernameInput(e.target.value)}
-              className="w-full p-3 rounded-xl border border-slate-300 font-mono text-xs focus:ring-2 focus:ring-indigo-500 focus:outline-hidden bg-slate-50/50"
-            />
-          </div>
-
-          <div>
-            <label className="block text-slate-800 font-bold mb-1 flex items-center gap-1.5">
-              <Key className="w-3.5 h-3.5 text-amber-500" />
-              <span>كلمة المرور (Password) *</span>
-            </label>
-            <div className="relative">
-              <input
-                type={showLoginPassword ? "text" : "password"}
-                required
-                placeholder="أدخل كلمة المرور (مثال: 123)"
-                value={loginPasswordInput}
-                onChange={(e) => setLoginPasswordInput(e.target.value)}
-                className="w-full p-3 pr-3 pl-10 rounded-xl border border-slate-300 font-mono text-xs focus:ring-2 focus:ring-indigo-500 focus:outline-hidden bg-slate-50/50"
-              />
-              <button
-                type="button"
-                onClick={() => setShowLoginPassword(!showLoginPassword)}
-                className="absolute left-3 top-3 text-slate-400 hover:text-indigo-600 cursor-pointer"
-                title={showLoginPassword ? "إخفاء كلمة المرور" : "إظهار كلمة المرور"}
-              >
-                {showLoginPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-              </button>
-            </div>
-            <div className="flex items-center justify-between mt-1 text-[11px] text-slate-500">
-              <span>* يمكنك أيضاً الدخول باسمك الكامل ورقمك الوظيفي أو رقم الجوال</span>
-            </div>
-          </div>
-
-          {loginError && (
-            <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs flex items-center gap-2">
-              <AlertCircle className="w-4 h-4 shrink-0" />
-              <span>{loginError}</span>
-            </div>
-          )}
-
+        {/* Login Method Tabs */}
+        <div className="flex bg-slate-100 p-1 rounded-xl mb-5 text-xs font-bold">
           <button
-            type="submit"
-            className="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold text-xs shadow-md transition-all cursor-pointer flex items-center justify-center gap-2"
+            type="button"
+            onClick={() => {
+              setLoginMethod("code");
+              setLoginError(null);
+            }}
+            className={`flex-1 py-2 rounded-lg transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+              loginMethod === "code"
+                ? "bg-white text-indigo-700 shadow-xs"
+                : "text-slate-600 hover:text-slate-900"
+            }`}
           >
-            <Lock className="w-4 h-4" />
-            <span>تسجيل الدخول والوصول للمواد والصفوف الموكل بها</span>
+            <Key className="w-3.5 h-3.5 text-amber-500" />
+            <span>الدخول برقم المعلم المحدد من المدير</span>
           </button>
-        </form>
+          <button
+            type="button"
+            onClick={() => {
+              setLoginMethod("credentials");
+              setLoginError(null);
+            }}
+            className={`flex-1 py-2 rounded-lg transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+              loginMethod === "credentials"
+                ? "bg-white text-indigo-700 shadow-xs"
+                : "text-slate-600 hover:text-slate-900"
+            }`}
+          >
+            <User className="w-3.5 h-3.5 text-indigo-600" />
+            <span>اسم المستخدم وكلمة المرور</span>
+          </button>
+        </div>
+
+        {/* METHOD 1: PIN CODE CREATED BY PRINCIPAL */}
+        {loginMethod === "code" ? (
+          <form onSubmit={handleTeacherPinSubmit} className="space-y-4 text-xs">
+            <div>
+              <label className="block text-slate-800 font-bold mb-1 flex items-center gap-1.5">
+                <Key className="w-3.5 h-3.5 text-amber-500" />
+                <span>رقم المعلم الأكاديمي / الرمز السري المحدد من المدير *</span>
+              </label>
+              <input
+                type="text"
+                required
+                autoFocus
+                placeholder="أدخل رقمك الوظيفي أو رمز الدخول (مثال: EMP-2026-002 أو 1002)"
+                value={teacherPinInput}
+                onChange={(e) => setTeacherPinInput(e.target.value)}
+                className="w-full p-3 rounded-xl border border-slate-300 font-mono text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-hidden bg-slate-50/50 text-center tracking-wider font-bold"
+              />
+              <p className="text-[11px] text-slate-500 mt-1">
+                * يتم إنشاء هذا الرقم وإرساله لك عبر واتساب أو إشعار مباشر من قبل مدير المدرسة.
+              </p>
+            </div>
+
+            {loginError && (
+              <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 shrink-0" />
+                <span>{loginError}</span>
+              </div>
+            )}
+
+            <button
+              type="submit"
+              className="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold text-xs shadow-md transition-all cursor-pointer flex items-center justify-center gap-2"
+            >
+              <CheckCircle2 className="w-4 h-4" />
+              <span>دخول فوري واستعراض طلاب الصفوف الموكلة</span>
+            </button>
+          </form>
+        ) : (
+          /* METHOD 2: USERNAME & PASSWORD */
+          <form onSubmit={handleTeacherLoginSubmit} className="space-y-4 text-xs">
+            <div>
+              <label className="block text-slate-800 font-bold mb-1 flex items-center gap-1.5">
+                <User className="w-3.5 h-3.5 text-indigo-600" />
+                <span>اسم المستخدم (Username) أو البريد الإلكتروني *</span>
+              </label>
+              <input
+                type="text"
+                required
+                placeholder="مثال: fatima.shami أو teacher.fatima أو فاطمة"
+                value={loginUsernameInput}
+                onChange={(e) => setLoginUsernameInput(e.target.value)}
+                className="w-full p-3 rounded-xl border border-slate-300 font-mono text-xs focus:ring-2 focus:ring-indigo-500 focus:outline-hidden bg-slate-50/50"
+              />
+            </div>
+
+            <div>
+              <label className="block text-slate-800 font-bold mb-1 flex items-center gap-1.5">
+                <Key className="w-3.5 h-3.5 text-amber-500" />
+                <span>كلمة المرور (Password) *</span>
+              </label>
+              <div className="relative">
+                <input
+                  type={showLoginPassword ? "text" : "password"}
+                  required
+                  placeholder="أدخل كلمة المرور (مثال: 123)"
+                  value={loginPasswordInput}
+                  onChange={(e) => setLoginPasswordInput(e.target.value)}
+                  className="w-full p-3 pr-3 pl-10 rounded-xl border border-slate-300 font-mono text-xs focus:ring-2 focus:ring-indigo-500 focus:outline-hidden bg-slate-50/50"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowLoginPassword(!showLoginPassword)}
+                  className="absolute left-3 top-3 text-slate-400 hover:text-indigo-600 cursor-pointer"
+                  title={showLoginPassword ? "إخفاء كلمة المرور" : "إظهار كلمة المرور"}
+                >
+                  {showLoginPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              </div>
+            </div>
+
+            {loginError && (
+              <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 shrink-0" />
+                <span>{loginError}</span>
+              </div>
+            )}
+
+            <button
+              type="submit"
+              className="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold text-xs shadow-md transition-all cursor-pointer flex items-center justify-center gap-2"
+            >
+              <Lock className="w-4 h-4" />
+              <span>تسجيل الدخول والوصول للمواد والصفوف الموكل بها</span>
+            </button>
+          </form>
+        )}
 
         {/* Quick Sample Teachers for One-Click Testing */}
         <div className="mt-8 pt-5 border-t border-slate-100">

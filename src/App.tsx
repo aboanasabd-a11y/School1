@@ -3,6 +3,7 @@ import { SchoolProvider, useSchool } from "./context/SchoolContext";
 import { Header } from "./components/layout/Header";
 import { Sidebar } from "./components/layout/Sidebar";
 import { FooterBar } from "./components/layout/FooterBar";
+import { TopPortalsBar } from "./components/layout/TopPortalsBar";
 import { DashboardOverview } from "./components/dashboard/DashboardOverview";
 import { SchoolStructureView } from "./components/school/SchoolStructureView";
 import { StudentsManagerView } from "./components/students/StudentsManagerView";
@@ -96,6 +97,7 @@ const MainContent: React.FC = () => {
       {/* Main Container */}
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden h-full">
         <Header onToggleSidebar={() => setSidebarOpen(!sidebarOpen)} />
+        <TopPortalsBar />
 
         {/* Scrollable Content View Area */}
         <main className="flex-1 overflow-y-auto p-3 sm:p-4 lg:p-5 w-full">
