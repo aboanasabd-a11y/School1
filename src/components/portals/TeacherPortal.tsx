@@ -169,44 +169,49 @@ export const TeacherPortal: React.FC = () => {
           <GraduationCap className="w-8 h-8" />
         </div>
 
-        <h2 className="text-xl font-black text-center text-slate-900 mb-1">
-          بوابة الكادر التعليمي - تسجيل الدخول الأكاديمي
-        </h2>
-        <p className="text-xs text-center text-slate-500 mb-5 leading-relaxed max-w-md mx-auto">
-          يفتح المعلم بوابته عن طريق رقم خاص يحدده وينشئه المدير، ليرى حصراً أسماء طلاب الصفوف والمواد الموكل بها.
-        </p>
+        <div className="text-center mb-6">
+          <span className="inline-block px-3 py-1 rounded-full bg-indigo-100 text-indigo-800 text-[11px] font-bold mb-2">
+            الدخول بكلمة سر المعلم
+          </span>
+          <h2 className="text-xl font-black text-center text-slate-900 mb-1">
+            بوابة المعلم - تسجيل الدخول بكلمة السر
+          </h2>
+          <p className="text-xs text-center text-slate-500 leading-relaxed max-w-md mx-auto">
+            تفتح بوابة المعلم بكلمة سر المعلم المعتمدة للاطلاع المباشر على الصفوف والمواد الموكل بها، رصد الدرجات والغياب، وإرسال الواجبات.
+          </p>
+        </div>
 
         {/* Login Method Tabs */}
         <div className="flex bg-slate-100 p-1 rounded-xl mb-5 text-xs font-bold">
           <button
             type="button"
             onClick={() => {
-              setLoginMethod("code");
-              setLoginError(null);
-            }}
-            className={`flex-1 py-2 rounded-lg transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
-              loginMethod === "code"
-                ? "bg-white text-indigo-700 shadow-xs"
-                : "text-slate-600 hover:text-slate-900"
-            }`}
-          >
-            <Key className="w-3.5 h-3.5 text-amber-500" />
-            <span>الدخول برقم المعلم المحدد من المدير</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => {
               setLoginMethod("credentials");
               setLoginError(null);
             }}
-            className={`flex-1 py-2 rounded-lg transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+            className={`flex-1 py-2.5 rounded-lg transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
               loginMethod === "credentials"
                 ? "bg-white text-indigo-700 shadow-xs"
                 : "text-slate-600 hover:text-slate-900"
             }`}
           >
+            <Key className="w-3.5 h-3.5 text-amber-500" />
+            <span>الدخول بكلمة سر المعلم (Password)</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setLoginMethod("code");
+              setLoginError(null);
+            }}
+            className={`flex-1 py-2.5 rounded-lg transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+              loginMethod === "code"
+                ? "bg-white text-indigo-700 shadow-xs"
+                : "text-slate-600 hover:text-slate-900"
+            }`}
+          >
             <User className="w-3.5 h-3.5 text-indigo-600" />
-            <span>اسم المستخدم وكلمة المرور</span>
+            <span>الدخول بالرقم الوظيفي / الكود</span>
           </button>
         </div>
 
@@ -251,18 +256,36 @@ export const TeacherPortal: React.FC = () => {
           /* METHOD 2: USERNAME & PASSWORD */
           <form onSubmit={handleTeacherLoginSubmit} className="space-y-4 text-xs">
             <div>
-              <label className="block text-slate-800 font-bold mb-1 flex items-center gap-1.5">
-                <User className="w-3.5 h-3.5 text-indigo-600" />
-                <span>اسم المستخدم (Username) أو البريد الإلكتروني *</span>
-              </label>
-              <input
-                type="text"
-                required
-                placeholder="مثال: fatima.shami أو teacher.fatima أو فاطمة"
-                value={loginUsernameInput}
-                onChange={(e) => setLoginUsernameInput(e.target.value)}
-                className="w-full p-3 rounded-xl border border-slate-300 font-mono text-xs focus:ring-2 focus:ring-indigo-500 focus:outline-hidden bg-slate-50/50"
-              />
+              <div className="flex items-center justify-between mb-1">
+                <label className="text-slate-800 font-bold flex items-center gap-1.5">
+                  <User className="w-3.5 h-3.5 text-indigo-600" />
+                  <span>المعلم / اسم المستخدم *</span>
+                </label>
+                <span className="text-[10.5px] text-indigo-700 font-semibold">اختر المعلم أو اكتب الاسم</span>
+              </div>
+              <div className="space-y-1.5">
+                <select
+                  value={loginUsernameInput}
+                  onChange={(e) => setLoginUsernameInput(e.target.value)}
+                  className="w-full p-2.5 rounded-xl border border-slate-300 text-xs focus:ring-2 focus:ring-indigo-500 bg-slate-50/50 font-bold text-slate-800"
+                >
+                  <option value="">-- اختر اسم المعلم من القائمة المعتمدة --</option>
+                  {staff
+                    .filter((s) => s.role === "teacher")
+                    .map((t) => (
+                      <option key={t.id} value={t.username || t.fullName}>
+                        {t.fullName} ({t.shift || "صباحي"} - {t.specialization})
+                      </option>
+                    ))}
+                </select>
+                <input
+                  type="text"
+                  placeholder="أو اكتب اسم المستخدم / الرقم الوظيفي يدوياً..."
+                  value={loginUsernameInput}
+                  onChange={(e) => setLoginUsernameInput(e.target.value)}
+                  className="w-full p-2.5 rounded-xl border border-slate-300 font-mono text-xs focus:ring-2 focus:ring-indigo-500 bg-white"
+                />
+              </div>
             </div>
 
             <div>

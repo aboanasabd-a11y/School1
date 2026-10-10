@@ -43,6 +43,8 @@ export const StudentsManagerView: React.FC = () => {
     importStudentsBatch,
     resetStudentsToOfficialData,
     generateParentDirectLink,
+    activeCohort,
+    setActiveCohort,
   } = useSchool();
 
   const [copiedStudentLink, setCopiedStudentLink] = useState<string | null>(null);
@@ -164,7 +166,14 @@ export const StudentsManagerView: React.FC = () => {
         ? !!(s.transportation?.usesBus || s.hasTransportation)
         : !(s.transportation?.usesBus || s.hasTransportation));
 
-    return matchQuery && matchGrade && matchSection && matchBus;
+    const matchCohort =
+      activeCohort === "all"
+        ? true
+        : activeCohort === "morning" || activeCohort === "cohort_1"
+        ? (!s.shift || s.shift.includes("صباحي") || s.shift.includes("الأول"))
+        : (s.shift && (s.shift.includes("مسائي") || s.shift.includes("الثاني")));
+
+    return matchQuery && matchGrade && matchSection && matchBus && matchCohort;
   });
 
   const handleOpenAdd = () => {
@@ -437,6 +446,61 @@ export const StudentsManagerView: React.FC = () => {
         onImportStudents={(imported, mode) => importStudentsBatch(imported, mode)}
         onResetOfficial={resetStudentsToOfficialData}
       />
+
+      {/* Cohort Tabs: الفوج الأول (صباحي) / الفوج الثاني (مسائي) */}
+      <div className="flex flex-wrap items-center justify-between gap-3 bg-white p-3 rounded-2xl border border-slate-200 shadow-2xs">
+        <div className="flex items-center gap-1.5 bg-slate-100 p-1 rounded-xl text-xs font-bold">
+          <button
+            type="button"
+            onClick={() => setActiveCohort("all")}
+            className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer ${
+              activeCohort === "all"
+                ? "bg-white text-slate-900 shadow-xs"
+                : "text-slate-600 hover:text-slate-900"
+            }`}
+          >
+            جميع الطلاب ({students.length})
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveCohort("morning")}
+            className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer flex items-center gap-1.5 ${
+              activeCohort === "morning" || activeCohort === "cohort_1"
+                ? "bg-emerald-600 text-white shadow-xs"
+                : "text-emerald-700 hover:bg-emerald-50"
+            }`}
+          >
+            <span>🌞 الفوج الأول (صباحي)</span>
+            <span className="px-1.5 py-0.2 rounded-full bg-white/20 text-[10px]">
+              {students.filter((s) => !s.shift || s.shift.includes("صباحي") || s.shift.includes("الأول")).length}
+            </span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveCohort("evening")}
+            className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer flex items-center gap-1.5 ${
+              activeCohort === "evening" || activeCohort === "cohort_2"
+                ? "bg-indigo-600 text-white shadow-xs"
+                : "text-indigo-700 hover:bg-indigo-50"
+            }`}
+          >
+            <span>🌙 الفوج الثاني (مسائي)</span>
+            <span className="px-1.5 py-0.2 rounded-full bg-white/20 text-[10px]">
+              {students.filter((s) => s.shift && (s.shift.includes("مسائي") || s.shift.includes("الثاني"))).length}
+            </span>
+          </button>
+        </div>
+
+        <div className="text-xs text-slate-500 font-medium">
+          {activeCohort === "all" ? (
+            <span>عرض شامل للطلاب بكلا الفوجين</span>
+          ) : activeCohort === "morning" || activeCohort === "cohort_1" ? (
+            <span className="text-emerald-700 font-bold">مفلتر على الفوج الأول (صباحي) فقط</span>
+          ) : (
+            <span className="text-indigo-700 font-bold">مفلتر على الفوج الثاني (مسائي) فقط</span>
+          )}
+        </div>
+      </div>
 
       {/* Filter Bar */}
       <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs flex flex-col md:flex-row items-center gap-3">

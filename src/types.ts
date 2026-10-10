@@ -50,15 +50,32 @@ export interface AcademicYear {
   status: 'active' | 'upcoming' | 'archived';
 }
 
+export interface GradeCohortSettings {
+  enabled: boolean;
+  sectionsCount: number;
+  maxCapacity: number;
+  annualTuition: number;
+  supervisorTeacherId?: string;
+  supervisorTeacherName?: string;
+  studyTime?: string; // e.g. "07:30 ص - 12:45 م"
+  classroomBlock?: string; // e.g. "الجناح الشمالي - الطابق 2"
+  track?: string; // e.g. "عام", "علمي", "أدبي"
+  notes?: string;
+}
+
 export interface Grade {
   id: string;
-  name: string; // e.g. "الصف الأول الأساسي"
+  name: string; // e.g. "الصف السابع"
   code: string;
   stage: 'kg' | 'primary' | 'middle' | 'high';
   academicYearId: string;
   annualTuition: number;
   sectionsCount: number;
   studentsCount: number;
+  track?: string; // e.g. "عام" | "علمي" | "أدبي"
+  cohort?: 'all' | 'morning' | 'evening' | 'both';
+  morningConfig?: GradeCohortSettings;
+  eveningConfig?: GradeCohortSettings;
 }
 
 export interface Section {
@@ -579,4 +596,20 @@ export interface NotificationSettings {
   notifyOnAnnouncements: boolean;
   notifyOnBusArrivals: boolean;
   browserPermission: NotificationPermission | 'unsupported';
+}
+
+export type CohortType = 'all' | 'morning' | 'evening' | 'cohort_1' | 'cohort_2';
+
+export interface CohortStats {
+  cohortKey: CohortType;
+  cohortLabel: string;
+  totalStudents: number;
+  maleStudents: number;
+  femaleStudents: number;
+  totalTeachers: number;
+  totalBuses: number;
+  busStudentsCount: number;
+  attendanceRate: number;
+  gradeAverage: number;
+  sectionsCount: number;
 }

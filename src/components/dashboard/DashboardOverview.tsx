@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 import { TabType } from "../layout/Sidebar";
 import { EditSchoolModal } from "../common/EditSchoolModal";
+import { DualDashboardView } from "./DualDashboardView";
 
 interface DashboardOverviewProps {
   setActiveTab?: (tab: TabType) => void;
@@ -328,6 +329,9 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({ setActiveT
           </div>
         </div>
       </div>
+
+      {/* DUAL DASHBOARD (لوحة التحكم الثنائية للتبديل السريع والمقارنة بين الفوجين) */}
+      <DualDashboardView onNavigate={handleNavigate} />
 
       {/* 8 BIG ACTION TILES (4 columns x 2 rows) matching the screenshot layout exactly */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">

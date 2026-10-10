@@ -45,6 +45,8 @@ export const StaffManagerView: React.FC = () => {
     generateTeacherDirectLink,
     applyDirectLinkAccess,
     setActiveModule,
+    activeCohort,
+    setActiveCohort,
   } = useSchool();
 
   const [searchQuery, setSearchQuery] = useState("");
@@ -141,7 +143,16 @@ export const StaffManagerView: React.FC = () => {
     const matchSpec =
       filterSpecialization === "all" || member.specialization === filterSpecialization;
 
-    return matchQuery && matchRole && matchSpec;
+    const matchCohort =
+      activeCohort === "all"
+        ? true
+        : !member.shift || member.shift.includes("كلا") || member.shift.includes("المشترك")
+        ? true
+        : activeCohort === "morning" || activeCohort === "cohort_1"
+        ? (member.shift.includes("صباحي") || member.shift.includes("الأول"))
+        : (member.shift.includes("مسائي") || member.shift.includes("الثاني"));
+
+    return matchQuery && matchRole && matchSpec && matchCohort;
   });
 
   const handleOpenAdd = () => {
@@ -382,6 +393,61 @@ export const StaffManagerView: React.FC = () => {
           <Plus className="w-4 h-4" />
           إضافة معلم / موظف وتحديد الصفوف والمواد
         </button>
+      </div>
+
+      {/* Cohort Tabs: الفوج الأول (صباحي) / الفوج الثاني (مسائي) */}
+      <div className="flex flex-wrap items-center justify-between gap-3 bg-white p-3 rounded-2xl border border-slate-200 shadow-2xs">
+        <div className="flex items-center gap-1.5 bg-slate-100 p-1 rounded-xl text-xs font-bold">
+          <button
+            type="button"
+            onClick={() => setActiveCohort("all")}
+            className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer ${
+              activeCohort === "all"
+                ? "bg-white text-slate-900 shadow-xs"
+                : "text-slate-600 hover:text-slate-900"
+            }`}
+          >
+            جميع الكادر ({staff.length})
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveCohort("morning")}
+            className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer flex items-center gap-1.5 ${
+              activeCohort === "morning" || activeCohort === "cohort_1"
+                ? "bg-emerald-600 text-white shadow-xs"
+                : "text-emerald-700 hover:bg-emerald-50"
+            }`}
+          >
+            <span>🌞 كادر الفوج الأول (صباحي)</span>
+            <span className="px-1.5 py-0.2 rounded-full bg-white/20 text-[10px]">
+              {staff.filter((m) => !m.shift || m.shift.includes("صباحي") || m.shift.includes("الأول") || m.shift.includes("كلا")).length}
+            </span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveCohort("evening")}
+            className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer flex items-center gap-1.5 ${
+              activeCohort === "evening" || activeCohort === "cohort_2"
+                ? "bg-indigo-600 text-white shadow-xs"
+                : "text-indigo-700 hover:bg-indigo-50"
+            }`}
+          >
+            <span>🌙 كادر الفوج الثاني (مسائي)</span>
+            <span className="px-1.5 py-0.2 rounded-full bg-white/20 text-[10px]">
+              {staff.filter((m) => m.shift && (m.shift.includes("مسائي") || m.shift.includes("الثاني") || m.shift.includes("كلا"))).length}
+            </span>
+          </button>
+        </div>
+
+        <div className="text-xs text-slate-500 font-medium">
+          {activeCohort === "all" ? (
+            <span>عرض شامل لجميع الكادر التعليمي والإداري</span>
+          ) : activeCohort === "morning" || activeCohort === "cohort_1" ? (
+            <span className="text-emerald-700 font-bold">كادر الفوج الصباحي فقط</span>
+          ) : (
+            <span className="text-indigo-700 font-bold">كادر الفوج المسائي فقط</span>
+          )}
+        </div>
       </div>
 
       {/* Filters */}

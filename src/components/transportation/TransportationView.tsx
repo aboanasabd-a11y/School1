@@ -25,7 +25,7 @@ import {
 } from "lucide-react";
 
 export const TransportationView: React.FC = () => {
-  const { busRoutes, students, updateBusGps, addBusRoute } = useSchool();
+  const { busRoutes, students, updateBusGps, addBusRoute, activeCohort, setActiveCohort } = useSchool();
 
   const [selectedRouteId, setSelectedRouteId] = useState<string>(busRoutes[0]?.id || "");
   const [isSimulatingGps, setIsSimulatingGps] = useState(true);
@@ -48,9 +48,17 @@ export const TransportationView: React.FC = () => {
     afternoonShiftTime: "01:30 م",
   });
 
+  const displayedBusRoutes = useMemo(() => {
+    if (activeCohort === "all") return busRoutes;
+    if (activeCohort === "morning" || activeCohort === "cohort_1") {
+      return busRoutes.filter((r) => !r.shift || r.shift.includes("صباحي") || r.shift.includes("الأول"));
+    }
+    return busRoutes.filter((r) => r.shift && (r.shift.includes("مسائي") || r.shift.includes("الثاني")));
+  }, [busRoutes, activeCohort]);
+
   const currentRoute = useMemo(
-    () => busRoutes.find((r) => r.id === selectedRouteId) || busRoutes[0],
-    [busRoutes, selectedRouteId]
+    () => displayedBusRoutes.find((r) => r.id === selectedRouteId) || displayedBusRoutes[0] || busRoutes[0],
+    [displayedBusRoutes, selectedRouteId, busRoutes]
   );
 
   // Assigned students for selected bus
@@ -196,6 +204,55 @@ export const TransportationView: React.FC = () => {
             <Plus className="w-3.5 h-3.5" />
             <span>إضافة حافلة ومسار</span>
           </button>
+        </div>
+      </div>
+
+      {/* Cohort Tabs: الفوج الأول (صباحي) / الفوج الثاني (مسائي) */}
+      <div className="flex flex-wrap items-center justify-between gap-3 bg-white p-3 rounded-2xl border border-slate-200 shadow-2xs">
+        <div className="flex items-center gap-1.5 bg-slate-100 p-1 rounded-xl text-xs font-bold">
+          <button
+            type="button"
+            onClick={() => setActiveCohort("all")}
+            className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer ${
+              activeCohort === "all"
+                ? "bg-white text-slate-900 shadow-xs"
+                : "text-slate-600 hover:text-slate-900"
+            }`}
+          >
+            جميع الحافلات ({busRoutes.length})
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveCohort("morning")}
+            className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer flex items-center gap-1.5 ${
+              activeCohort === "morning" || activeCohort === "cohort_1"
+                ? "bg-emerald-600 text-white shadow-xs"
+                : "text-emerald-700 hover:bg-emerald-50"
+            }`}
+          >
+            <span>🌞 حافلة الفوج الأول (صباحي - باص 01)</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveCohort("evening")}
+            className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer flex items-center gap-1.5 ${
+              activeCohort === "evening" || activeCohort === "cohort_2"
+                ? "bg-indigo-600 text-white shadow-xs"
+                : "text-indigo-700 hover:bg-indigo-50"
+            }`}
+          >
+            <span>🌙 حافلة الفوج الثاني (مسائي - باص 02)</span>
+          </button>
+        </div>
+
+        <div className="text-xs text-slate-500 font-medium">
+          {activeCohort === "all" ? (
+            <span>عرض كلا مساري الحافلات</span>
+          ) : activeCohort === "morning" || activeCohort === "cohort_1" ? (
+            <span className="text-emerald-700 font-bold">مسار باص 01 (سائق 1 - أبو بكر الدوسري)</span>
+          ) : (
+            <span className="text-indigo-700 font-bold">مسار باص 02 (سائق 2 - خالد الغامدي)</span>
+          )}
         </div>
       </div>
 
@@ -479,7 +536,7 @@ export const TransportationView: React.FC = () => {
           <div className="bg-white rounded-xl border border-slate-200 p-3.5 shadow-2xs space-y-2.5">
             <div className="flex items-center justify-between border-b border-slate-100 pb-2">
               <h3 className="font-black text-xs sm:text-sm text-slate-900">
-                حافلات الأسطول المدرسي ({busRoutes.length})
+                حافلات الأسطول المدرسي ({displayedBusRoutes.length})
               </h3>
               <span className="text-[10px] text-emerald-600 font-bold bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
                 جميع الحافلات نشطة
@@ -487,7 +544,7 @@ export const TransportationView: React.FC = () => {
             </div>
 
             <div className="space-y-2">
-              {busRoutes.map((route) => {
+              {displayedBusRoutes.map((route) => {
                 const isSelected = route.id === currentRoute?.id;
                 return (
                   <div

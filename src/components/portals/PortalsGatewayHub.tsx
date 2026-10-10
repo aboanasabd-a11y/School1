@@ -120,7 +120,7 @@ export const PortalsGatewayHub: React.FC = () => {
                 👨‍👩‍👧
               </div>
               <span className="text-xs font-bold px-3 py-1 rounded-full bg-purple-50 text-purple-900 border border-purple-200">
-                برقم الطالب أو الرابط الذكي
+                تفتح برقم الطالب فقط
               </span>
             </div>
 
@@ -129,19 +129,19 @@ export const PortalsGatewayHub: React.FC = () => {
                 <span>2. بوابة ولي الأمر</span>
               </h2>
               <p className="text-xs sm:text-sm text-slate-600 mt-2 leading-relaxed">
-                متابعة شاملة ومباشرة لكل ما يرسله المعلم أو إدارة المدرسة: الدرجات والاختبارات، الحضور والغياب اليومي، بطاقات التقييم والملاحظات السلوكية، وسداد الرسوم وتتبع حافلة المدرسة بالـ GPS.
+                تفتح برقم الطالب التسلسلي فقط دون الحاجة لأي كلمة سر: متابعة شاملة وفورية للعلامات، الحضور والغياب، السلوك، وموقع باص المدرسة بالـ GPS.
               </p>
             </div>
 
             <div className="pt-2 flex flex-wrap gap-2 text-[11px] text-slate-600 font-medium">
-              <span className="bg-slate-100 px-2.5 py-1 rounded-lg">سجل الدرجات الفوري</span>
+              <span className="bg-slate-100 px-2.5 py-1 rounded-lg">دخول برقم الطالب فقط</span>
               <span className="bg-slate-100 px-2.5 py-1 rounded-lg">تتبع باص المدرسة GPS</span>
-              <span className="bg-slate-100 px-2.5 py-1 rounded-lg">الملاحظات والواجبات</span>
+              <span className="bg-slate-100 px-2.5 py-1 rounded-lg">الدرجات والتقارير</span>
             </div>
           </div>
 
           <div className="relative pt-6 mt-4 border-t border-slate-100 flex items-center justify-between text-xs font-bold text-purple-700 group-hover:text-purple-800">
-            <span>دخول بوابة ولي الأمر ومتابعة الطالب</span>
+            <span>دخول بوابة ولي الأمر برقم الطالب</span>
             <div className="w-8 h-8 rounded-full bg-purple-50 group-hover:bg-purple-600 group-hover:text-white flex items-center justify-center transition-all">
               <ChevronLeft className="w-4 h-4" />
             </div>
@@ -161,7 +161,7 @@ export const PortalsGatewayHub: React.FC = () => {
                 👨‍🏫
               </div>
               <span className="text-xs font-bold px-3 py-1 rounded-full bg-blue-50 text-blue-900 border border-blue-200">
-                برقم المعلم / الصفوف الموكلة
+                تفتح بكلمة سر المعلم
               </span>
             </div>
 
@@ -170,19 +170,19 @@ export const PortalsGatewayHub: React.FC = () => {
                 <span>3. بوابة المعلم</span>
               </h2>
               <p className="text-xs sm:text-sm text-slate-600 mt-2 leading-relaxed">
-                يفتح المعلم بوابته برقم سري مخصص يحدده وينشئه المدير؛ يرى المعلم حصراً كشوف وأسماء طلاب الصفوف والمواد الموكل بتدريسها مع إمكانية رصد الدرجات وتسجيل الغياب والملاحظات السلوكية والواجبات.
+                تفتح بكلمة سر المعلم المسجلة في النظام: يرى المعلم حصراً كشوف وأسماء طلاب الصفوف والمواد الموكل بها مع إمكانية رصد الدرجات وتسجيل الغياب اليومي.
               </p>
             </div>
 
             <div className="pt-2 flex flex-wrap gap-2 text-[11px] text-slate-600 font-medium">
+              <span className="bg-slate-100 px-2.5 py-1 rounded-lg">الدخول بكلمة السر</span>
               <span className="bg-slate-100 px-2.5 py-1 rounded-lg">الصفوف الموكلة فقط</span>
-              <span className="bg-slate-100 px-2.5 py-1 rounded-lg">رصد الدرجات والتقييمات</span>
-              <span className="bg-slate-100 px-2.5 py-1 rounded-lg">كشف الغياب اليومي</span>
+              <span className="bg-slate-100 px-2.5 py-1 rounded-lg">رصد الدرجات والغياب</span>
             </div>
           </div>
 
           <div className="relative pt-6 mt-4 border-t border-slate-100 flex items-center justify-between text-xs font-bold text-blue-700 group-hover:text-blue-800">
-            <span>دخول بوابة المعلم واستعراض الصفوف</span>
+            <span>دخول بوابة المعلم بكلمة السر</span>
             <div className="w-8 h-8 rounded-full bg-blue-50 group-hover:bg-blue-600 group-hover:text-white flex items-center justify-center transition-all">
               <ChevronLeft className="w-4 h-4" />
             </div>
@@ -202,7 +202,7 @@ export const PortalsGatewayHub: React.FC = () => {
                 🚌
               </div>
               <span className="text-xs font-bold px-3 py-1 rounded-full bg-amber-50 text-amber-900 border border-amber-200">
-                تحديد آلي للموقع ومسار الطلاب
+                تفتح برقم السائق (1 أو 2)
               </span>
             </div>
 
@@ -211,7 +211,7 @@ export const PortalsGatewayHub: React.FC = () => {
                 <span>4. بوابة السائق (النقل المدرسي)</span>
               </h2>
               <p className="text-xs sm:text-sm text-slate-600 mt-2 leading-relaxed">
-                تحديد موقع الحافلة الجغرافي آلياً عبر نظام GPS Live Telemetry، مع استعراض كشف وعناوين ومواقع منازل الطلاب الموكل بنقلهم على الخريطة، وتسجيل صعودهم ونزولهم وإرسال تنبيهات فورية.
+                تفتح برقم السائق المعتمد (1 للفوج الصباحي / 2 للفوج المسائي): تتبع آلي لموقع الحافلة عبر GPS، كشف ركاب طلاب الفوج، وتسجيل الصعود والنزول.
               </p>
             </div>
 

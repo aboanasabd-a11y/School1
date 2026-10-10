@@ -25,6 +25,8 @@ import {
   PushNotificationItem,
   NotificationSettings,
   EvaluationRecord,
+  CohortType,
+  CohortStats,
 } from "../types";
 import { playNotificationSound } from "../utils/sound";
 import {
@@ -96,6 +98,8 @@ interface SchoolContextType {
   setSelectedSectionId: (id: string | null) => void;
 
   // Cohort (الفوج) separation: الفوج الأول (صباحي) and الفوج الثاني (مسائي)
+  activeCohort: CohortType;
+  setActiveCohort: (cohort: CohortType) => void;
   selectedCohort: "all" | "cohort_1" | "cohort_2";
   setSelectedCohort: (cohort: "all" | "cohort_1" | "cohort_2") => void;
   studentsInCohort1: Student[];
@@ -104,6 +108,24 @@ interface SchoolContextType {
   teachersInCohort2: StaffMember[];
   busRoutesInCohort1: BusRoute[];
   busRoutesInCohort2: BusRoute[];
+
+  // Independent Cohort-Isolated Data Streams & Getters
+  activeCohortStudents: Student[];
+  activeCohortStaff: StaffMember[];
+  activeCohortBusRoutes: BusRoute[];
+  activeCohortAttendance: AttendanceRecord[];
+  activeCohortGradeRecords: GradeRecord[];
+  activeCohortTimetableSlots: TimetableSlot[];
+  getActiveStudents: (cohortOverride?: CohortType) => Student[];
+  getActiveStaff: (cohortOverride?: CohortType) => StaffMember[];
+  getActiveBusRoutes: (cohortOverride?: CohortType) => BusRoute[];
+  getActiveAttendanceRecords: (cohortOverride?: CohortType) => AttendanceRecord[];
+  getActiveGradeRecords: (cohortOverride?: CohortType) => GradeRecord[];
+  getActiveTimetableSlots: (cohortOverride?: CohortType) => TimetableSlot[];
+  getCohortStats: (cohortOverride?: CohortType) => CohortStats;
+  morningCohortStats: CohortStats;
+  eveningCohortStats: CohortStats;
+  combinedCohortStats: CohortStats;
 
   // Smart Links & Direct Links Dispatcher
   isSmartLinksModalOpen: boolean;
@@ -395,7 +417,29 @@ export const SchoolProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const [selectedSectionId, setSelectedSectionId] = useState<string | null>(null);
 
   // Cohort (الفوج) separation: الفوج الأول (صباحي) and الفوج الثاني (مسائي)
-  const [selectedCohort, setSelectedCohort] = useState<"all" | "cohort_1" | "cohort_2">("all");
+  const [activeCohort, setActiveCohortState] = useState<CohortType>("all");
+
+  const normalizeCohort = (c: CohortType): "all" | "morning" | "evening" => {
+    if (c === "cohort_1" || c === "morning") return "morning";
+    if (c === "cohort_2" || c === "evening") return "evening";
+    return "all";
+  };
+
+  const setActiveCohort = (cohort: CohortType) => {
+    setActiveCohortState(cohort);
+  };
+
+  const setSelectedCohort = (cohort: "all" | "cohort_1" | "cohort_2") => {
+    setActiveCohortState(cohort);
+  };
+
+  const selectedCohort = (
+    activeCohort === "morning" || activeCohort === "cohort_1"
+      ? "cohort_1"
+      : activeCohort === "evening" || activeCohort === "cohort_2"
+      ? "cohort_2"
+      : "all"
+  ) as "all" | "cohort_1" | "cohort_2";
 
   const studentsInCohort1 = useMemo(
     () =>
@@ -467,6 +511,154 @@ export const SchoolProvider: React.FC<{ children: React.ReactNode }> = ({ childr
             r.shift.includes("الثاني"))
       ),
     [busRoutes]
+  );
+
+  // Independent Cohort-Specific Getters
+  const getActiveStudents = (cohortOverride?: CohortType): Student[] => {
+    const c = normalizeCohort(cohortOverride || activeCohort);
+    if (c === "all") return students;
+    if (c === "morning") return studentsInCohort1;
+    return studentsInCohort2;
+  };
+
+  const getActiveStaff = (cohortOverride?: CohortType): StaffMember[] => {
+    const c = normalizeCohort(cohortOverride || activeCohort);
+    if (c === "all") return staff;
+    if (c === "morning") {
+      return staff.filter(
+        (m) =>
+          !m.shift ||
+          m.shift.includes("صباحي") ||
+          m.shift.includes("الأول") ||
+          m.shift.includes("كلا")
+      );
+    }
+    return staff.filter(
+      (m) =>
+        m.shift &&
+        (m.shift.includes("مسائي") ||
+          m.shift.includes("الثاني") ||
+          m.shift.includes("كلا"))
+    );
+  };
+
+  const getActiveBusRoutes = (cohortOverride?: CohortType): BusRoute[] => {
+    const c = normalizeCohort(cohortOverride || activeCohort);
+    if (c === "all") return busRoutes;
+    if (c === "morning") return busRoutesInCohort1;
+    return busRoutesInCohort2;
+  };
+
+  const getActiveAttendanceRecords = (cohortOverride?: CohortType): AttendanceRecord[] => {
+    const c = normalizeCohort(cohortOverride || activeCohort);
+    if (c === "all") return attendanceRecords;
+    const targetStudents = c === "morning" ? studentsInCohort1 : studentsInCohort2;
+    const studentIds = new Set(targetStudents.map((s) => s.id));
+    return attendanceRecords.filter((rec) => studentIds.has(rec.studentId));
+  };
+
+  const getActiveGradeRecords = (cohortOverride?: CohortType): GradeRecord[] => {
+    const c = normalizeCohort(cohortOverride || activeCohort);
+    if (c === "all") return gradeRecords;
+    const targetStudents = c === "morning" ? studentsInCohort1 : studentsInCohort2;
+    const studentIds = new Set(targetStudents.map((s) => s.id));
+    return gradeRecords.filter((rec) => studentIds.has(rec.studentId));
+  };
+
+  const getActiveTimetableSlots = (cohortOverride?: CohortType): TimetableSlot[] => {
+    const c = normalizeCohort(cohortOverride || activeCohort);
+    if (c === "all") return timetableSlots;
+    const targetTeachers = getActiveStaff(c);
+    const teacherIds = new Set(targetTeachers.map((t) => t.id));
+    return timetableSlots.filter((slot) => {
+      if (slot.shift) {
+        if (c === "morning") return slot.shift.includes("صباحي") || slot.shift.includes("الأول");
+        if (c === "evening") return slot.shift.includes("مسائي") || slot.shift.includes("الثاني");
+      }
+      return teacherIds.has(slot.teacherId);
+    });
+  };
+
+  const getCohortStats = (cohortOverride?: CohortType): CohortStats => {
+    const c = normalizeCohort(cohortOverride || activeCohort);
+    const stList = getActiveStudents(c);
+    const stStaff = getActiveStaff(c).filter((m) => m.role === "teacher");
+    const stBuses = getActiveBusRoutes(c);
+    const stAttendance = getActiveAttendanceRecords(c);
+    const stGrades = getActiveGradeRecords(c);
+
+    const maleStudents = stList.filter((s) => s.gender === "male").length;
+    const femaleStudents = stList.filter((s) => s.gender === "female").length;
+    const busStudentsCount = stList.filter((s) => s.transportation?.usesBus).length;
+
+    const presentAttendance = stAttendance.filter((a) => a.status === "present").length;
+    const attendanceRate = stAttendance.length > 0
+      ? Math.round((presentAttendance / stAttendance.length) * 100)
+      : 96;
+
+    const totalScores = stGrades.reduce((sum, g) => sum + (g.score || 0), 0);
+    const gradeAverage = stGrades.length > 0
+      ? Math.round((totalScores / stGrades.length) * 10) / 10
+      : 88.5;
+
+    const label =
+      c === "morning"
+        ? "الفوج الأول (صباحي)"
+        : c === "evening"
+        ? "الفوج الثاني (مسائي)"
+        : "كلا الفوجين (شامل النظام)";
+
+    return {
+      cohortKey: c,
+      cohortLabel: label,
+      totalStudents: stList.length,
+      maleStudents,
+      femaleStudents,
+      totalTeachers: stStaff.length,
+      totalBuses: stBuses.length,
+      busStudentsCount,
+      attendanceRate,
+      gradeAverage,
+      sectionsCount: sections.length,
+    };
+  };
+
+  const morningCohortStats = useMemo(
+    () => getCohortStats("morning"),
+    [studentsInCohort1, staff, busRoutesInCohort1, attendanceRecords, gradeRecords, sections]
+  );
+  const eveningCohortStats = useMemo(
+    () => getCohortStats("evening"),
+    [studentsInCohort2, staff, busRoutesInCohort2, attendanceRecords, gradeRecords, sections]
+  );
+  const combinedCohortStats = useMemo(
+    () => getCohortStats("all"),
+    [students, staff, busRoutes, attendanceRecords, gradeRecords, sections]
+  );
+
+  const activeCohortStudents = useMemo(
+    () => getActiveStudents(),
+    [activeCohort, studentsInCohort1, studentsInCohort2, students]
+  );
+  const activeCohortStaff = useMemo(
+    () => getActiveStaff(),
+    [activeCohort, staff]
+  );
+  const activeCohortBusRoutes = useMemo(
+    () => getActiveBusRoutes(),
+    [activeCohort, busRoutesInCohort1, busRoutesInCohort2, busRoutes]
+  );
+  const activeCohortAttendance = useMemo(
+    () => getActiveAttendanceRecords(),
+    [activeCohort, attendanceRecords, studentsInCohort1, studentsInCohort2]
+  );
+  const activeCohortGradeRecords = useMemo(
+    () => getActiveGradeRecords(),
+    [activeCohort, gradeRecords, studentsInCohort1, studentsInCohort2]
+  );
+  const activeCohortTimetableSlots = useMemo(
+    () => getActiveTimetableSlots(),
+    [activeCohort, timetableSlots, staff]
   );
 
   // Smart Links & Direct Access State
@@ -796,8 +988,24 @@ export const SchoolProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         const parsed = JSON.parse(saved);
         if (parsed.students) setStudents(parsed.students);
         if (parsed.staff) setStaff(parsed.staff);
-        if (parsed.grades) setGrades(parsed.grades);
-        if (parsed.sections) setSections(parsed.sections);
+        if (parsed.grades) {
+          const loadedGrades: Grade[] = parsed.grades;
+          initialGrades.forEach((initG) => {
+            if (!loadedGrades.some((g) => g.id === initG.id || g.name.includes(initG.code))) {
+              loadedGrades.push(initG);
+            }
+          });
+          setGrades(loadedGrades);
+        }
+        if (parsed.sections) {
+          const loadedSections: Section[] = parsed.sections;
+          initialSections.forEach((initS) => {
+            if (!loadedSections.some((s) => s.id === initS.id)) {
+              loadedSections.push(initS);
+            }
+          });
+          setSections(loadedSections);
+        }
         if (parsed.subjects) setSubjects(parsed.subjects);
         if (parsed.exams) setExams(parsed.exams);
         if (parsed.gradeRecords) setGradeRecords(parsed.gradeRecords);
@@ -1034,9 +1242,31 @@ export const SchoolProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
   // Academic Actions
   const addGrade = (gradeData: Omit<Grade, "id">) => {
-    const newGrade: Grade = { ...gradeData, id: `grade-${Date.now()}` };
+    const newGradeId = `grade-${Date.now()}`;
+    const newGrade: Grade = {
+      ...gradeData,
+      id: newGradeId,
+      sectionsCount: gradeData.sectionsCount || 1,
+      studentsCount: gradeData.studentsCount || 0,
+    };
     setGrades((prev) => [...prev, newGrade]);
-    addAuditLog("إضافة مرحلة/صف دراسي جديد", "إدارة الصفوف", `تم إنشاء: ${newGrade.name}`);
+
+    // Automatically create a default section (أ) for this grade so students can enroll immediately
+    const defaultSection: Section = {
+      id: `sec-${Date.now()}-a`,
+      name: `شعبة (أ) - ${newGrade.name}`,
+      gradeId: newGradeId,
+      gradeName: newGrade.name,
+      classroom: `${newGrade.stage === "high" ? "مبنى الثانوي" : newGrade.stage === "middle" ? "مبنى الإعدادي والمتوسط" : "مبنى الابتدائي"} - قاعة 101`,
+      roomNumber: "101",
+      maxCapacity: 30,
+      currentStudentsCount: 0,
+      supervisorTeacherId: staff.find((s) => s.role === "teacher")?.id || "staff-2",
+      supervisorTeacherName: staff.find((s) => s.role === "teacher")?.fullName || "أ. فاطمة الزهراء الشامي",
+    };
+    setSections((prev) => [...prev, defaultSection]);
+
+    addAuditLog("إضافة مرحلة/صف دراسي جديد", "إدارة الصفوف", `تم إنشاء: ${newGrade.name} مع شعبته الافتراضية`);
   };
 
   const updateGrade = (id: string, data: Partial<Grade>) => {
@@ -1569,12 +1799,30 @@ export const SchoolProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         setIsSmartLinksModalOpen,
         selectedCohort,
         setSelectedCohort,
+        activeCohort,
+        setActiveCohort,
         studentsInCohort1,
         studentsInCohort2,
         teachersInCohort1,
         teachersInCohort2,
         busRoutesInCohort1,
         busRoutesInCohort2,
+        activeCohortStudents,
+        activeCohortStaff,
+        activeCohortBusRoutes,
+        activeCohortAttendance,
+        activeCohortGradeRecords,
+        activeCohortTimetableSlots,
+        getActiveStudents,
+        getActiveStaff,
+        getActiveBusRoutes,
+        getActiveAttendanceRecords,
+        getActiveGradeRecords,
+        getActiveTimetableSlots,
+        getCohortStats,
+        morningCohortStats,
+        eveningCohortStats,
+        combinedCohortStats,
         smartLinksInitialTab,
         smartLinksTargetId,
         openSmartLinksModal,

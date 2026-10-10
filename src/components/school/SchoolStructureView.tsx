@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useSchool } from "../../context/SchoolContext";
-import { Grade, Section, Subject, AcademicYear } from "../../types";
+import { Grade, Section, Subject, AcademicYear, GradeCohortSettings } from "../../types";
 import {
   Building2,
   Calendar,
@@ -28,6 +28,17 @@ import {
   Library,
   BookCheck,
   CheckSquare,
+  Sun,
+  Moon,
+  Columns,
+  ToggleLeft,
+  ToggleRight,
+  Settings,
+  ArrowRightLeft,
+  GraduationCap,
+  Eye,
+  SlidersHorizontal,
+  RefreshCw,
 } from "lucide-react";
 
 interface SchoolStructureViewProps {
@@ -41,8 +52,11 @@ export const SchoolStructureView: React.FC<SchoolStructureViewProps> = ({ initia
     sections,
     subjects,
     staff,
+    students,
     userProfiles,
     selectedYear,
+    activeCohort,
+    setActiveCohort,
     addGrade,
     updateGrade,
     deleteGrade,
@@ -65,10 +79,262 @@ export const SchoolStructureView: React.FC<SchoolStructureViewProps> = ({ initia
     }
   }, [initialSubTab]);
 
-  // Modals
+  // Cohort & Filter states for Grades view
+  const [gradeCohortView, setGradeCohortView] = useState<"all" | "morning" | "evening" | "compare">("all");
+  const [gradeScopeFilter, setGradeScopeFilter] = useState<"all" | "target_six">("target_six");
+  const [gradeSearchQuery, setGradeSearchQuery] = useState("");
+
+  // Target six requested grades presets
+  const targetGradesPresets = [
+    {
+      code: "G7",
+      name: "الصف السابع (الأول المتوسط / الإعدادي)",
+      label: "السابع",
+      stage: "middle" as const,
+      annualTuition: 19000,
+      track: "عام أساسي",
+      morningConfig: {
+        enabled: true,
+        sectionsCount: 1,
+        maxCapacity: 30,
+        annualTuition: 19000,
+        studyTime: "07:30 ص - 12:45 م",
+        classroomBlock: "المبنى الأوسط - الطابق 1 (قاعة 101)",
+        supervisorTeacherName: "أ. فاطمة الزهراء الشامي",
+        track: "عام",
+        notes: "الفوج الصباحي - تدريس المناهج الأساسية واللغات",
+      },
+      eveningConfig: {
+        enabled: true,
+        sectionsCount: 1,
+        maxCapacity: 28,
+        annualTuition: 18000,
+        studyTime: "01:00 م - 05:45 م",
+        classroomBlock: "المبنى الأوسط - الطابق 1 (قاعة 101)",
+        supervisorTeacherName: "أ. زياد المهندس",
+        track: "عام",
+        notes: "الفوج المسائي - حصص تقوية ومتابعة مركزة",
+      },
+    },
+    {
+      code: "G8",
+      name: "الصف الثامن (الثاني المتوسط / الإعدادي)",
+      label: "الثامن",
+      stage: "middle" as const,
+      annualTuition: 19500,
+      track: "عام أساسي",
+      morningConfig: {
+        enabled: true,
+        sectionsCount: 1,
+        maxCapacity: 30,
+        annualTuition: 19500,
+        studyTime: "07:30 ص - 12:45 م",
+        classroomBlock: "المبنى الأوسط - الطابق 1 (قاعة 102)",
+        supervisorTeacherName: "د. عمر خالد الفاروق",
+        track: "عام",
+        notes: "الفوج الصباحي للثامن",
+      },
+      eveningConfig: {
+        enabled: true,
+        sectionsCount: 1,
+        maxCapacity: 28,
+        annualTuition: 18500,
+        studyTime: "01:00 م - 05:45 م",
+        classroomBlock: "المبنى الأوسط - الطابق 1 (قاعة 102)",
+        supervisorTeacherName: "أ. نادية المنصوري",
+        track: "عام",
+        notes: "الفوج المسائي للثامن",
+      },
+    },
+    {
+      code: "G9",
+      name: "الصف التاسع (الثالث المتوسط / شهادة التعليم الأساسي)",
+      label: "التاسع",
+      stage: "middle" as const,
+      annualTuition: 20500,
+      track: "شهادة التعليم الأساسي",
+      morningConfig: {
+        enabled: true,
+        sectionsCount: 1,
+        maxCapacity: 32,
+        annualTuition: 20500,
+        studyTime: "07:30 ص - 01:15 م",
+        classroomBlock: "مبنى الشهادات - جناح التاسع أ",
+        supervisorTeacherName: "أ. أحمد عبد السلام",
+        track: "شهادة أساسية",
+        notes: "الفوج الصباحي - تحضير للامتحانات الوطنية ونماذج الاختبارات",
+      },
+      eveningConfig: {
+        enabled: true,
+        sectionsCount: 1,
+        maxCapacity: 30,
+        annualTuition: 19500,
+        studyTime: "01:00 م - 06:00 م",
+        classroomBlock: "مبنى الشهادات - جناح التاسع ب",
+        supervisorTeacherName: "أ. مروان القدسي",
+        track: "شهادة أساسية",
+        notes: "الفوج المسائي - دورات مكثفة ومراجعات نهائية",
+      },
+    },
+    {
+      code: "G10",
+      name: "الصف العاشر (الأول الثانوي)",
+      label: "العاشر",
+      stage: "high" as const,
+      annualTuition: 24000,
+      track: "مشترك (علمي / أدبي)",
+      morningConfig: {
+        enabled: true,
+        sectionsCount: 1,
+        maxCapacity: 32,
+        annualTuition: 24000,
+        studyTime: "07:30 ص - 01:15 م",
+        classroomBlock: "المبنى الثانوي - قاعة 201",
+        supervisorTeacherName: "أ. حسام الدين الحلبي",
+        track: "جذع مشترك",
+        notes: "الفوج الصباحي - تأسيس فيزياء وكيمياء ورياضيات",
+      },
+      eveningConfig: {
+        enabled: true,
+        sectionsCount: 1,
+        maxCapacity: 30,
+        annualTuition: 22500,
+        studyTime: "01:00 م - 06:00 م",
+        classroomBlock: "المبنى الثانوي - قاعة 201",
+        supervisorTeacherName: "أ. ريم الشريف",
+        track: "جذع مشترك",
+        notes: "الفوج المسائي - دعم ومساندة وتجارب مخبرية مسائية",
+      },
+    },
+    {
+      code: "G11",
+      name: "الصف الحادي عشر (الثاني الثانوي)",
+      label: "الحادي عشر",
+      stage: "high" as const,
+      annualTuition: 25000,
+      track: "علمي وأدبي",
+      morningConfig: {
+        enabled: true,
+        sectionsCount: 1,
+        maxCapacity: 30,
+        annualTuition: 25000,
+        studyTime: "07:30 ص - 01:15 م",
+        classroomBlock: "المبنى الثانوي - قاعة 205",
+        supervisorTeacherName: "د. طارق المستنير",
+        track: "علمي",
+        notes: "الفوج الصباحي - المسار العلمي المتقدم",
+      },
+      eveningConfig: {
+        enabled: true,
+        sectionsCount: 1,
+        maxCapacity: 28,
+        annualTuition: 23500,
+        studyTime: "01:00 م - 06:00 م",
+        classroomBlock: "المبنى الثانوي - قاعة 206",
+        supervisorTeacherName: "أ. سامي العراقي",
+        track: "أدبي وعام",
+        notes: "الفوج المسائي - مسار العلوم الإنسانية",
+      },
+    },
+    {
+      code: "BAC",
+      name: "الصف الثاني عشر (البكالوريا / الشهادة الثانوية العامة)",
+      label: "البكالوريا",
+      stage: "high" as const,
+      annualTuition: 27000,
+      track: "البكالوريا (علمي وأدبي)",
+      morningConfig: {
+        enabled: true,
+        sectionsCount: 1,
+        maxCapacity: 35,
+        annualTuition: 27000,
+        studyTime: "07:30 ص - 01:30 م",
+        classroomBlock: "مبنى البكالوريا - قاعة المتفوقين (301)",
+        supervisorTeacherName: "أ. د. عبد الرحمن العيسى",
+        track: "البكالوريا العلمية",
+        notes: "الفوج الصباحي - كادر نخبوي، بنوك أسئلة وزارية، متابعة يومية",
+      },
+      eveningConfig: {
+        enabled: true,
+        sectionsCount: 1,
+        maxCapacity: 30,
+        annualTuition: 25500,
+        studyTime: "01:00 م - 06:30 م",
+        classroomBlock: "مبنى البكالوريا - قاعة المتفوقين (302)",
+        supervisorTeacherName: "أ. منى المغربي",
+        track: "البكالوريا الأدبية والعامة",
+        notes: "الفوج المسائي - مكثفات امتحانات البكالوريا والشهادة العامة",
+      },
+    },
+  ];
+
+  // Modals & Forms
   const [showGradeModal, setShowGradeModal] = useState(false);
   const [editingGrade, setEditingGrade] = useState<Grade | null>(null);
-  const [gradeForm, setGradeForm] = useState({ name: "", code: "", stage: "primary" as Grade["stage"], annualTuition: 15000 });
+  const [gradeForm, setGradeForm] = useState({
+    name: "",
+    code: "",
+    stage: "middle" as Grade["stage"],
+    annualTuition: 19000,
+    track: "عام",
+    cohort: "both" as "all" | "morning" | "evening" | "both",
+    activeModalTab: "general" as "general" | "morning" | "evening",
+    morningConfig: {
+      enabled: true,
+      sectionsCount: 1,
+      maxCapacity: 30,
+      annualTuition: 19000,
+      studyTime: "07:30 ص - 12:45 م",
+      classroomBlock: "المبنى الأوسط - جناح الصباح (قاعة 101)",
+      supervisorTeacherName: "أ. فاطمة الزهراء الشامي",
+      track: "عام",
+      notes: "تدريس مناهج الفوج الصباحي والأنشطة",
+    },
+    eveningConfig: {
+      enabled: true,
+      sectionsCount: 1,
+      maxCapacity: 28,
+      annualTuition: 18000,
+      studyTime: "01:00 م - 05:45 م",
+      classroomBlock: "المبنى الأوسط - جناح المساء (قاعة 101)",
+      supervisorTeacherName: "أ. زياد المهندس",
+      track: "عام",
+      notes: "تدريس مناهج الفوج المسائي وحصص المتابعة",
+    },
+  });
+
+  // Dedicated Quick Cohort Editor Modal for independent modification
+  const [cohortQuickModal, setCohortQuickModal] = useState<{
+    isOpen: boolean;
+    grade: Grade | null;
+    cohort: "morning" | "evening";
+    config: {
+      enabled: boolean;
+      sectionsCount: number;
+      maxCapacity: number;
+      annualTuition: number;
+      studyTime: string;
+      classroomBlock: string;
+      supervisorTeacherName: string;
+      track: string;
+      notes: string;
+    };
+  }>({
+    isOpen: false,
+    grade: null,
+    cohort: "morning",
+    config: {
+      enabled: true,
+      sectionsCount: 1,
+      maxCapacity: 30,
+      annualTuition: 19000,
+      studyTime: "07:30 ص - 12:45 م",
+      classroomBlock: "",
+      supervisorTeacherName: "",
+      track: "عام",
+      notes: "",
+    },
+  });
 
   const [showSectionModal, setShowSectionModal] = useState(false);
   const [editingSection, setEditingSection] = useState<Section | null>(null);
@@ -102,6 +368,179 @@ export const SchoolStructureView: React.FC<SchoolStructureViewProps> = ({ initia
   const [subjectToast, setSubjectToast] = useState<string | null>(null);
 
   const [importStatus, setImportStatus] = useState<string | null>(null);
+
+  // Helper to compute live student statistics for any grade
+  const getGradeStudentStats = (grade: Grade) => {
+    const morningCount = students.filter((s) => {
+      const matchGrade =
+        s.academicGradeText?.includes(grade.name.slice(0, 8)) ||
+        (grade.name.includes("السابع") && s.academicGradeText?.includes("السابع")) ||
+        (grade.name.includes("الثامن") && s.academicGradeText?.includes("الثامن")) ||
+        (grade.name.includes("التاسع") && s.academicGradeText?.includes("التاسع")) ||
+        (grade.name.includes("العاشر") && s.academicGradeText?.includes("العاشر")) ||
+        (grade.name.includes("الحادي عشر") && s.academicGradeText?.includes("الحادي عشر")) ||
+        (grade.name.includes("البكالوريا") && s.academicGradeText?.includes("البكالوريا"));
+
+      return matchGrade && (s.shift?.includes("صباحي") || s.shift?.includes("الأول"));
+    }).length;
+
+    const eveningCount = students.filter((s) => {
+      const matchGrade =
+        s.academicGradeText?.includes(grade.name.slice(0, 8)) ||
+        (grade.name.includes("السابع") && s.academicGradeText?.includes("السابع")) ||
+        (grade.name.includes("الثامن") && s.academicGradeText?.includes("الثامن")) ||
+        (grade.name.includes("التاسع") && s.academicGradeText?.includes("التاسع")) ||
+        (grade.name.includes("العاشر") && s.academicGradeText?.includes("العاشر")) ||
+        (grade.name.includes("الحادي عشر") && s.academicGradeText?.includes("الحادي عشر")) ||
+        (grade.name.includes("البكالوريا") && s.academicGradeText?.includes("البكالوريا"));
+
+      return matchGrade && (s.shift?.includes("مسائي") || s.shift?.includes("الثاني"));
+    }).length;
+
+    return {
+      morningCount,
+      eveningCount,
+      totalCount: morningCount + eveningCount || grade.studentsCount,
+    };
+  };
+
+  const openAddGrade = (preset?: typeof targetGradesPresets[0]) => {
+    setEditingGrade(null);
+    if (preset) {
+      setGradeForm({
+        name: preset.name,
+        code: preset.code,
+        stage: preset.stage,
+        annualTuition: preset.annualTuition,
+        track: preset.track,
+        cohort: "both",
+        activeModalTab: "general",
+        morningConfig: { ...preset.morningConfig },
+        eveningConfig: { ...preset.eveningConfig },
+      });
+    } else {
+      setGradeForm({
+        name: "",
+        code: "",
+        stage: "middle",
+        annualTuition: 19000,
+        track: "عام",
+        cohort: "both",
+        activeModalTab: "general",
+        morningConfig: {
+          enabled: true,
+          sectionsCount: 1,
+          maxCapacity: 30,
+          annualTuition: 19000,
+          studyTime: "07:30 ص - 12:45 م",
+          classroomBlock: "المبنى الأوسط - جناح الصباح (قاعة 101)",
+          supervisorTeacherName: staff.find((s) => s.role === "teacher")?.fullName || "أ. فاطمة الزهراء الشامي",
+          track: "عام",
+          notes: "الفوج الصباحي",
+        },
+        eveningConfig: {
+          enabled: true,
+          sectionsCount: 1,
+          maxCapacity: 28,
+          annualTuition: 18000,
+          studyTime: "01:00 م - 05:45 م",
+          classroomBlock: "المبنى الأوسط - جناح المساء (قاعة 101)",
+          supervisorTeacherName: staff.find((s) => s.role === "teacher" && s.id !== "staff-1")?.fullName || "أ. زياد المهندس",
+          track: "عام",
+          notes: "الفوج المسائي",
+        },
+      });
+    }
+    setShowGradeModal(true);
+  };
+
+  const openEditGrade = (grade: Grade, defaultTab: "general" | "morning" | "evening" = "general") => {
+    setEditingGrade(grade);
+    const mConf = grade.morningConfig || {
+      enabled: true,
+      sectionsCount: 1,
+      maxCapacity: 30,
+      annualTuition: grade.annualTuition || 19000,
+      studyTime: "07:30 ص - 12:45 م",
+      classroomBlock: "المبنى المدرسي - جناح الصباح",
+      supervisorTeacherName: staff.find((s) => s.role === "teacher")?.fullName || "أ. فاطمة الزهراء الشامي",
+      track: grade.track || "عام",
+      notes: "الفوج الصباحي",
+    };
+    const eConf = grade.eveningConfig || {
+      enabled: true,
+      sectionsCount: 1,
+      maxCapacity: 28,
+      annualTuition: (grade.annualTuition || 19000) - 1000,
+      studyTime: "01:00 م - 05:45 م",
+      classroomBlock: "المبنى المدرسي - جناح المساء",
+      supervisorTeacherName: staff.find((s) => s.role === "teacher" && s.id !== "staff-1")?.fullName || "أ. زياد المهندس",
+      track: grade.track || "عام",
+      notes: "الفوج المسائي",
+    };
+
+    setGradeForm({
+      name: grade.name,
+      code: grade.code,
+      stage: grade.stage,
+      annualTuition: grade.annualTuition,
+      track: grade.track || "عام",
+      cohort: grade.cohort || "both",
+      activeModalTab: defaultTab,
+      morningConfig: { ...mConf },
+      eveningConfig: { ...eConf },
+    });
+    setShowGradeModal(true);
+  };
+
+  const openQuickCohortEdit = (grade: Grade, cohort: "morning" | "evening") => {
+    const currentConfig = cohort === "morning"
+      ? (grade.morningConfig || {
+          enabled: true,
+          sectionsCount: 1,
+          maxCapacity: 30,
+          annualTuition: grade.annualTuition || 19000,
+          studyTime: "07:30 ص - 12:45 م",
+          classroomBlock: "المبنى المدرسي - جناح الصباح",
+          supervisorTeacherName: staff.find((s) => s.role === "teacher")?.fullName || "أ. فاطمة الزهراء الشامي",
+          track: grade.track || "عام",
+          notes: "الفوج الصباحي",
+        })
+      : (grade.eveningConfig || {
+          enabled: true,
+          sectionsCount: 1,
+          maxCapacity: 28,
+          annualTuition: (grade.annualTuition || 19000) - 1000,
+          studyTime: "01:00 م - 05:45 م",
+          classroomBlock: "المبنى المدرسي - جناح المساء",
+          supervisorTeacherName: staff.find((s) => s.role === "teacher" && s.id !== "staff-1")?.fullName || "أ. زياد المهندس",
+          track: grade.track || "عام",
+          notes: "الفوج المسائي",
+        });
+
+    setCohortQuickModal({
+      isOpen: true,
+      grade,
+      cohort,
+      config: { ...currentConfig },
+    });
+  };
+
+  const handleSaveCohortQuick = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!cohortQuickModal.grade) return;
+    const gradeId = cohortQuickModal.grade.id;
+    if (cohortQuickModal.cohort === "morning") {
+      updateGrade(gradeId, {
+        morningConfig: cohortQuickModal.config,
+      });
+    } else {
+      updateGrade(gradeId, {
+        eveningConfig: cohortQuickModal.config,
+      });
+    }
+    setCohortQuickModal((prev) => ({ ...prev, isOpen: false, grade: null }));
+  };
 
   const popularSubjectPresets = [
     { name: "القرآن الكريم والدراسات الإسلامية", code: "ISL-101", hours: 4, icon: "📖", desc: "تلاوة وحفظ القرآن الكريم، الفقه والحديث، والسيرة النبوية العطرة" },
@@ -154,19 +593,39 @@ export const SchoolStructureView: React.FC<SchoolStructureViewProps> = ({ initia
   // Grade Save
   const handleSaveGrade = (e: React.FormEvent) => {
     e.preventDefault();
+    const finalSectionsCount =
+      (gradeForm.morningConfig.enabled ? gradeForm.morningConfig.sectionsCount : 0) +
+      (gradeForm.eveningConfig.enabled ? gradeForm.eveningConfig.sectionsCount : 0) || 1;
+
     if (editingGrade) {
-      updateGrade(editingGrade.id, gradeForm);
+      updateGrade(editingGrade.id, {
+        name: gradeForm.name,
+        code: gradeForm.code,
+        stage: gradeForm.stage,
+        annualTuition: gradeForm.annualTuition,
+        track: gradeForm.track,
+        cohort: gradeForm.cohort,
+        sectionsCount: finalSectionsCount,
+        morningConfig: gradeForm.morningConfig,
+        eveningConfig: gradeForm.eveningConfig,
+      });
     } else {
       addGrade({
-        ...gradeForm,
-        academicYearId: selectedYear,
-        sectionsCount: 0,
+        name: gradeForm.name,
+        code: gradeForm.code,
+        stage: gradeForm.stage,
+        annualTuition: gradeForm.annualTuition,
+        track: gradeForm.track,
+        cohort: gradeForm.cohort,
+        academicYearId: selectedYear || "year-2025-2026",
+        sectionsCount: finalSectionsCount,
         studentsCount: 0,
+        morningConfig: gradeForm.morningConfig,
+        eveningConfig: gradeForm.eveningConfig,
       });
     }
     setShowGradeModal(false);
     setEditingGrade(null);
-    setGradeForm({ name: "", code: "", stage: "primary", annualTuition: 15000 });
   };
 
   // Section Save
@@ -413,82 +872,614 @@ export const SchoolStructureView: React.FC<SchoolStructureViewProps> = ({ initia
 
       {/* SubTab 1: Grades Management */}
       {activeSubTab === "grades" && (
-        <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <h3 className="text-sm font-bold text-slate-800">قائمة الصفوف والمراحل الدراسية</h3>
-            <button
-              onClick={() => {
-                setEditingGrade(null);
-                setGradeForm({ name: "", code: "", stage: "primary", annualTuition: 15000 });
-                setShowGradeModal(true);
-              }}
-              className="px-3.5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-sm transition-all"
-            >
-              <Plus className="w-4 h-4" />
-              إضافة صف دراسي
-            </button>
+        <div className="space-y-5">
+          {/* Top Actions & Subtitle */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white p-4 rounded-2xl border border-slate-200 shadow-xs">
+            <div>
+              <h3 className="text-sm font-black text-slate-900 flex items-center gap-2">
+                <School className="w-4 h-4 text-indigo-600" />
+                هيكل الصفوف والمراحل الدراسية (مستقلة للفوجين الصباحي والمسائي)
+              </h3>
+              <p className="text-xs text-slate-500 mt-0.5">
+                تخصيص كامل للشعب، السعة، الرسوم، التوقيت، والمشرفين لكل صف بشكل مستقل بين الفوج الصباحي والفوج المسائي
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => openAddGrade()}
+                className="px-3.5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-sm transition-all"
+              >
+                <Plus className="w-4 h-4" />
+                إضافة صف دراسي جديد
+              </button>
+            </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {grades.map((grade) => (
-              <div
-                key={grade.id}
-                className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs hover:border-indigo-300 transition-all flex flex-col justify-between"
-              >
-                <div>
-                  <div className="flex items-center justify-between">
-                    <span className="px-2.5 py-1 rounded-md text-[10px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-100">
-                      كود: {grade.code}
-                    </span>
-                    <span className="text-xs font-bold text-slate-400">
-                      {grade.stage === "kg" ? "رياض الأطفال" : grade.stage === "primary" ? "ابتدائي" : grade.stage === "middle" ? "متوسط" : "ثانوي"}
-                    </span>
-                  </div>
-                  <h4 className="text-base font-bold text-slate-900 mt-2">{grade.name}</h4>
-                  <div className="mt-3 space-y-1 text-xs text-slate-600">
-                    <div className="flex justify-between">
-                      <span>الرسوم السنوية:</span>
-                      <span className="font-bold text-slate-900">{grade.annualTuition.toLocaleString()} ر.س</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>الشعب المفتوحة:</span>
-                      <span className="font-bold text-slate-900">{sections.filter((s) => s.gradeId === grade.id).length} شعب</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>عدد الطلاب المقيدين:</span>
-                      <span className="font-bold text-indigo-600">{grade.studentsCount} طالب</span>
-                    </div>
-                  </div>
+          {/* Featured Requested Grades Banner: السابع، الثامن، التاسع، العاشر، الحادي عشر، البكالوريا */}
+          <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white p-5 rounded-2xl border border-indigo-900/60 shadow-lg">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-4 pb-3 border-b border-white/10">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-xl bg-amber-400/20 border border-amber-400/30 flex items-center justify-center text-amber-300">
+                  <Sparkles className="w-4 h-4" />
                 </div>
-
-                <div className="flex items-center justify-end gap-2 mt-4 pt-3 border-t border-slate-100">
-                  <button
-                    onClick={() => {
-                      setEditingGrade(grade);
-                      setGradeForm({
-                        name: grade.name,
-                        code: grade.code,
-                        stage: grade.stage,
-                        annualTuition: grade.annualTuition,
-                      });
-                      setShowGradeModal(true);
-                    }}
-                    className="p-1.5 text-slate-600 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
-                    title="تعديل"
-                  >
-                    <Edit2 className="w-3.5 h-3.5" />
-                  </button>
-                  <button
-                    onClick={() => deleteGrade(grade.id)}
-                    className="p-1.5 text-slate-600 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
-                    title="حذف"
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                  </button>
+                <div>
+                  <h4 className="font-black text-sm text-white flex items-center gap-2">
+                    الصفوف الأساسية المستهدفة (السابع، الثامن، التاسع، العاشر، الحادي عشر، البكالوريا)
+                  </h4>
+                  <p className="text-[11px] text-indigo-200 mt-0.5">
+                    الصفوف التعليمية الرسمية مع الدعم المزدوج المستقل للفوج الصباحي والمسائي
+                  </p>
                 </div>
               </div>
-            ))}
+              <div className="flex items-center gap-2">
+                <span className="px-2.5 py-1 rounded-lg text-[10px] font-bold bg-white/10 text-white border border-white/10">
+                  {targetGradesPresets.filter((p) => grades.some((g) => g.code === p.code || g.name.includes(p.label))).length} من 6 مفعلة بالنظام
+                </span>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5">
+              {targetGradesPresets.map((preset) => {
+                const existing = grades.find((g) => g.code === preset.code || g.name.includes(preset.label));
+                const stats = existing ? getGradeStudentStats(existing) : { morningCount: 0, eveningCount: 0, totalCount: 0 };
+                const isConfigured = Boolean(existing);
+
+                return (
+                  <div
+                    key={preset.code}
+                    className={`p-3 rounded-xl border transition-all flex flex-col justify-between ${
+                      isConfigured
+                        ? "bg-white/10 border-indigo-400/30 hover:border-indigo-300"
+                        : "bg-white/5 border-dashed border-white/20 hover:bg-white/10"
+                    }`}
+                  >
+                    <div>
+                      <div className="flex items-center justify-between">
+                        <span className="font-mono text-[10px] px-1.5 py-0.5 rounded-md bg-amber-400/20 text-amber-300 font-black border border-amber-400/30">
+                          {preset.code}
+                        </span>
+                        <span className="text-[9.5px] text-slate-300">
+                          {preset.stage === "middle" ? "إعدادي" : "ثانوي"}
+                        </span>
+                      </div>
+                      <h5 className="font-bold text-xs text-white mt-1.5 line-clamp-1">{preset.label}</h5>
+                      <div className="text-[10px] text-indigo-200 mt-0.5">{preset.track}</div>
+                    </div>
+
+                    {isConfigured && existing ? (
+                      <div className="mt-3 pt-2 border-t border-white/10 space-y-1.5">
+                        <div className="flex items-center justify-between text-[10px]">
+                          <span className="text-amber-300 flex items-center gap-1 font-bold">
+                            <Sun className="w-3 h-3" /> {stats.morningCount}
+                          </span>
+                          <span className="text-indigo-300 flex items-center gap-1 font-bold">
+                            <Moon className="w-3 h-3" /> {stats.eveningCount}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-1 pt-1">
+                          <button
+                            type="button"
+                            onClick={() => openEditGrade(existing, "morning")}
+                            className="flex-1 py-1 rounded bg-amber-500/20 hover:bg-amber-500/30 text-amber-200 text-[9.5px] font-bold text-center transition-colors"
+                            title="تعديل خصائص الفوج الصباحي"
+                          >
+                            ☀️ صباحي
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => openEditGrade(existing, "evening")}
+                            className="flex-1 py-1 rounded bg-indigo-500/30 hover:bg-indigo-500/40 text-indigo-200 text-[9.5px] font-bold text-center transition-colors"
+                            title="تعديل خصائص الفوج المسائي"
+                          >
+                            🌙 مسائي
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="mt-3 pt-2 border-t border-white/10">
+                        <button
+                          type="button"
+                          onClick={() => openAddGrade(preset)}
+                          className="w-full py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-[10px] font-bold text-center transition-all flex items-center justify-center gap-1 shadow-xs"
+                        >
+                          <Plus className="w-3 h-3" /> تفعيل الصف
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
           </div>
+
+          {/* Filtering & View Control Toolbar */}
+          <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3 bg-white p-3.5 rounded-2xl border border-slate-200 shadow-xs">
+            {/* Scope Filter Tabs */}
+            <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl">
+              <button
+                type="button"
+                onClick={() => setGradeScopeFilter("target_six")}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                  gradeScopeFilter === "target_six"
+                    ? "bg-white text-indigo-700 shadow-xs"
+                    : "text-slate-600 hover:text-slate-900"
+                }`}
+              >
+                الصفوف المستهدفة (السابع إلى البكالوريا)
+              </button>
+              <button
+                type="button"
+                onClick={() => setGradeScopeFilter("all")}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                  gradeScopeFilter === "all"
+                    ? "bg-white text-indigo-700 shadow-xs"
+                    : "text-slate-600 hover:text-slate-900"
+                }`}
+              >
+                جميع الصفوف المفتوحة ({grades.length})
+              </button>
+            </div>
+
+            {/* Cohort View Filter */}
+            <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl">
+              <button
+                type="button"
+                onClick={() => setGradeCohortView("all")}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all ${
+                  gradeCohortView === "all"
+                    ? "bg-white text-slate-900 shadow-xs"
+                    : "text-slate-600 hover:text-slate-900"
+                }`}
+              >
+                <Layers className="w-3.5 h-3.5 text-slate-500" />
+                كلا الفوجين (مفصل)
+              </button>
+              <button
+                type="button"
+                onClick={() => setGradeCohortView("morning")}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all ${
+                  gradeCohortView === "morning"
+                    ? "bg-amber-500 text-white shadow-xs"
+                    : "text-slate-600 hover:text-amber-700"
+                }`}
+              >
+                <Sun className="w-3.5 h-3.5 text-amber-500" />
+                الفوج الصباحي فقط
+              </button>
+              <button
+                type="button"
+                onClick={() => setGradeCohortView("evening")}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all ${
+                  gradeCohortView === "evening"
+                    ? "bg-indigo-600 text-white shadow-xs"
+                    : "text-slate-600 hover:text-indigo-700"
+                }`}
+              >
+                <Moon className="w-3.5 h-3.5 text-indigo-500" />
+                الفوج المسائي فقط
+              </button>
+              <button
+                type="button"
+                onClick={() => setGradeCohortView("compare")}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all ${
+                  gradeCohortView === "compare"
+                    ? "bg-emerald-600 text-white shadow-xs"
+                    : "text-slate-600 hover:text-emerald-700"
+                }`}
+              >
+                <Columns className="w-3.5 h-3.5 text-emerald-500" />
+                مقارنة الفوجين ⚖️
+              </button>
+            </div>
+
+            {/* Search Input */}
+            <div className="relative min-w-[200px]">
+              <Search className="w-3.5 h-3.5 text-slate-400 absolute right-3 top-3" />
+              <input
+                type="text"
+                placeholder="بحث في الصفوف أو الأكواد..."
+                value={gradeSearchQuery}
+                onChange={(e) => setGradeSearchQuery(e.target.value)}
+                className="w-full pr-8 pl-3 py-2 text-xs rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-indigo-500"
+              />
+            </div>
+          </div>
+
+          {/* COMPARISON MATRIX VIEW (When gradeCohortView === "compare") */}
+          {gradeCohortView === "compare" && (
+            <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-xs">
+              <div className="p-4 bg-slate-50/80 border-b border-slate-200 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Columns className="w-4 h-4 text-emerald-600" />
+                  <span className="font-bold text-xs text-slate-900">
+                    جدول المقارنة المستقلة لخصائص الصفوف: الفوج الصباحي ☀️ مقابل الفوج المسائي 🌙
+                  </span>
+                </div>
+                <span className="text-[11px] text-slate-500">
+                  انقر على أي صف للتعديل المستقل المباشر
+                </span>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full text-right text-xs">
+                  <thead className="bg-slate-100 text-slate-700 font-bold border-b border-slate-200">
+                    <tr>
+                      <th className="p-3">الصف الدراسي</th>
+                      <th className="p-3 bg-amber-50/50 text-amber-950 border-r border-amber-100">☀️ دوام الصباحي</th>
+                      <th className="p-3 bg-amber-50/50 text-amber-950">☀️ شعب وسعة الصباحي</th>
+                      <th className="p-3 bg-amber-50/50 text-amber-950">☀️ قسط الصباحي</th>
+                      <th className="p-3 bg-amber-50/50 text-amber-950">☀️ مشرف الصباحي</th>
+                      <th className="p-3 bg-indigo-50/50 text-indigo-950 border-r border-indigo-100">🌙 دوام المسائي</th>
+                      <th className="p-3 bg-indigo-50/50 text-indigo-950">🌙 شعب وسعة المسائي</th>
+                      <th className="p-3 bg-indigo-50/50 text-indigo-950">🌙 قسط المسائي</th>
+                      <th className="p-3 bg-indigo-50/50 text-indigo-950">🌙 مشرف المسائي</th>
+                      <th className="p-3 text-center">الطلاب (ص/م)</th>
+                      <th className="p-3 text-left">إجراءات</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 text-slate-800">
+                    {grades
+                      .filter((grade) => {
+                        if (gradeScopeFilter === "target_six") {
+                          const isTarget =
+                            grade.code === "G7" ||
+                            grade.code === "G8" ||
+                            grade.code === "G9" ||
+                            grade.code === "G10" ||
+                            grade.code === "G11" ||
+                            grade.code === "BAC" ||
+                            grade.name.includes("السابع") ||
+                            grade.name.includes("الثامن") ||
+                            grade.name.includes("التاسع") ||
+                            grade.name.includes("العاشر") ||
+                            grade.name.includes("الحادي عشر") ||
+                            grade.name.includes("البكالوريا");
+                          if (!isTarget) return false;
+                        }
+                        if (gradeSearchQuery.trim()) {
+                          const q = gradeSearchQuery.toLowerCase().trim();
+                          if (!grade.name.toLowerCase().includes(q) && !grade.code.toLowerCase().includes(q)) return false;
+                        }
+                        return true;
+                      })
+                      .map((grade) => {
+                        const stats = getGradeStudentStats(grade);
+                        const mConf = grade.morningConfig || {
+                          enabled: true,
+                          studyTime: "07:30 ص - 12:45 م",
+                          sectionsCount: 1,
+                          maxCapacity: 30,
+                          annualTuition: grade.annualTuition,
+                          supervisorTeacherName: "أ. فاطمة الزهراء",
+                        };
+                        const eConf = grade.eveningConfig || {
+                          enabled: true,
+                          studyTime: "01:00 م - 05:45 م",
+                          sectionsCount: 1,
+                          maxCapacity: 28,
+                          annualTuition: grade.annualTuition - 1000,
+                          supervisorTeacherName: "أ. زياد المهندس",
+                        };
+
+                        return (
+                          <tr key={grade.id} className="hover:bg-slate-50/70 transition-colors">
+                            <td className="p-3">
+                              <div className="font-bold text-slate-900">{grade.name}</div>
+                              <div className="text-[10px] text-slate-500 font-mono mt-0.5">
+                                كود: {grade.code} • {grade.stage === "middle" ? "إعدادي" : grade.stage === "high" ? "ثانوي" : "ابتدائي"}
+                              </div>
+                            </td>
+                            {/* Morning Columns */}
+                            <td className="p-3 bg-amber-50/30 border-r border-amber-100 font-medium text-amber-900">
+                              {mConf.studyTime || "07:30 ص - 12:45 م"}
+                            </td>
+                            <td className="p-3 bg-amber-50/30 text-slate-700">
+                              <span className="font-bold text-amber-800">{mConf.sectionsCount || 1} شعب</span> (سعة {mConf.maxCapacity || 30})
+                            </td>
+                            <td className="p-3 bg-amber-50/30 font-bold text-slate-900">
+                              {(mConf.annualTuition || grade.annualTuition).toLocaleString()} ر.س
+                            </td>
+                            <td className="p-3 bg-amber-50/30 text-slate-600 text-[11px]">
+                              {mConf.supervisorTeacherName || "أ. فاطمة الزهراء"}
+                            </td>
+                            {/* Evening Columns */}
+                            <td className="p-3 bg-indigo-50/30 border-r border-indigo-100 font-medium text-indigo-900">
+                              {eConf.studyTime || "01:00 م - 05:45 م"}
+                            </td>
+                            <td className="p-3 bg-indigo-50/30 text-slate-700">
+                              <span className="font-bold text-indigo-800">{eConf.sectionsCount || 1} شعب</span> (سعة {eConf.maxCapacity || 28})
+                            </td>
+                            <td className="p-3 bg-indigo-50/30 font-bold text-slate-900">
+                              {(eConf.annualTuition || grade.annualTuition - 1000).toLocaleString()} ر.س
+                            </td>
+                            <td className="p-3 bg-indigo-50/30 text-slate-600 text-[11px]">
+                              {eConf.supervisorTeacherName || "أ. زياد المهندس"}
+                            </td>
+                            {/* Students Breakdown */}
+                            <td className="p-3 text-center">
+                              <div className="inline-flex items-center gap-1.5 px-2 py-1 rounded-lg bg-slate-100 font-bold text-[11px]">
+                                <span className="text-amber-600">☀️ {stats.morningCount}</span>
+                                <span className="text-slate-400">/</span>
+                                <span className="text-indigo-600">🌙 {stats.eveningCount}</span>
+                              </div>
+                            </td>
+                            {/* Actions */}
+                            <td className="p-3 text-left">
+                              <div className="flex items-center justify-end gap-1">
+                                <button
+                                  type="button"
+                                  onClick={() => openQuickCohortEdit(grade, "morning")}
+                                  className="px-2 py-1 bg-amber-50 hover:bg-amber-100 text-amber-800 rounded-md text-[10px] font-bold border border-amber-200 transition-colors"
+                                  title="تعديل خصائص الفوج الصباحي"
+                                >
+                                  تعديل الصباحي
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => openQuickCohortEdit(grade, "evening")}
+                                  className="px-2 py-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-800 rounded-md text-[10px] font-bold border border-indigo-200 transition-colors"
+                                  title="تعديل خصائص الفوج المسائي"
+                                >
+                                  تعديل المسائي
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => openEditGrade(grade, "general")}
+                                  className="p-1 text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-md"
+                                  title="تعديل عام للصف"
+                                >
+                                  <Edit2 className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {/* DETAILED CARDS VIEW (When not in compare mode) */}
+          {gradeCohortView !== "compare" && (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {grades
+                .filter((grade) => {
+                  if (gradeScopeFilter === "target_six") {
+                    const isTarget =
+                      grade.code === "G7" ||
+                      grade.code === "G8" ||
+                      grade.code === "G9" ||
+                      grade.code === "G10" ||
+                      grade.code === "G11" ||
+                      grade.code === "BAC" ||
+                      grade.name.includes("السابع") ||
+                      grade.name.includes("الثامن") ||
+                      grade.name.includes("التاسع") ||
+                      grade.name.includes("العاشر") ||
+                      grade.name.includes("الحادي عشر") ||
+                      grade.name.includes("البكالوريا");
+                    if (!isTarget) return false;
+                  }
+                  if (gradeSearchQuery.trim()) {
+                    const q = gradeSearchQuery.toLowerCase().trim();
+                    if (!grade.name.toLowerCase().includes(q) && !grade.code.toLowerCase().includes(q)) return false;
+                  }
+                  return true;
+                })
+                .map((grade) => {
+                  const stats = getGradeStudentStats(grade);
+                  const mConf = grade.morningConfig || {
+                    enabled: true,
+                    sectionsCount: 1,
+                    maxCapacity: 30,
+                    annualTuition: grade.annualTuition || 19000,
+                    studyTime: "07:30 ص - 12:45 م",
+                    classroomBlock: "المبنى الأوسط - جناح الصباح (قاعة 101)",
+                    supervisorTeacherName: "أ. فاطمة الزهراء الشامي",
+                    track: grade.track || "عام",
+                    notes: "الفوج الصباحي",
+                  };
+                  const eConf = grade.eveningConfig || {
+                    enabled: true,
+                    sectionsCount: 1,
+                    maxCapacity: 28,
+                    annualTuition: (grade.annualTuition || 19000) - 1000,
+                    studyTime: "01:00 م - 05:45 م",
+                    classroomBlock: "المبنى الأوسط - جناح المساء (قاعة 101)",
+                    supervisorTeacherName: "أ. زياد المهندس",
+                    track: grade.track || "عام",
+                    notes: "الفوج المسائي",
+                  };
+
+                  return (
+                    <div
+                      key={grade.id}
+                      className="bg-white rounded-2xl border border-slate-200 shadow-xs hover:border-indigo-300 hover:shadow-md transition-all flex flex-col justify-between overflow-hidden"
+                    >
+                      {/* Card Header */}
+                      <div className="p-4 border-b border-slate-100 bg-slate-50/50">
+                        <div className="flex items-center justify-between mb-1.5">
+                          <span className="px-2 py-0.5 rounded-md text-[10px] font-mono font-bold bg-indigo-50 text-indigo-700 border border-indigo-100">
+                            {grade.code}
+                          </span>
+                          <div className="flex items-center gap-1.5">
+                            {grade.track && (
+                              <span className="px-2 py-0.5 rounded-md text-[9.5px] font-bold bg-amber-50 text-amber-700 border border-amber-100">
+                                {grade.track}
+                              </span>
+                            )}
+                            <span className="text-[11px] font-bold text-slate-500">
+                              {grade.stage === "kg" ? "رياض أطفال" : grade.stage === "primary" ? "ابتدائي" : grade.stage === "middle" ? "متوسط / إعدادي" : "ثانوي"}
+                            </span>
+                          </div>
+                        </div>
+                        <h4 className="text-sm font-black text-slate-900 leading-snug">{grade.name}</h4>
+                        
+                        {/* Student Count Summary Badge */}
+                        <div className="mt-2.5 flex items-center justify-between text-[11px] bg-white p-2 rounded-xl border border-slate-200">
+                          <span className="text-slate-600 font-medium">الطلاب المسجلين:</span>
+                          <div className="flex items-center gap-2">
+                            <span className="font-bold text-indigo-700">{stats.totalCount} طالب</span>
+                            <span className="text-slate-300">|</span>
+                            <span className="text-amber-600 font-bold flex items-center gap-0.5">
+                              <Sun className="w-3 h-3" /> {stats.morningCount}
+                            </span>
+                            <span className="text-indigo-600 font-bold flex items-center gap-0.5">
+                              <Moon className="w-3 h-3" /> {stats.eveningCount}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Independent Cohort Details Section */}
+                      <div className="p-4 space-y-3 flex-1">
+                        {/* ☀️ MORNING COHORT BOX (Shown if viewing 'all' or 'morning') */}
+                        {(gradeCohortView === "all" || gradeCohortView === "morning") && (
+                          <div className="p-3 rounded-xl border border-amber-200/70 bg-amber-50/30 space-y-2">
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-1.5">
+                                <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
+                                <span className="font-bold text-xs text-amber-900 flex items-center gap-1">
+                                  <Sun className="w-3.5 h-3.5 text-amber-600" />
+                                  الفوج الصباحي (الأول)
+                                </span>
+                              </div>
+                              <span className={`text-[9.5px] px-2 py-0.5 rounded-md font-bold ${
+                                mConf.enabled
+                                  ? "bg-emerald-100 text-emerald-800"
+                                  : "bg-slate-100 text-slate-500"
+                              }`}>
+                                {mConf.enabled ? "✓ مفعل" : "معطل"}
+                              </span>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-2 text-[11px] text-slate-700 pt-1">
+                              <div>
+                                <span className="text-slate-500 block text-[10px]">مواعيد الدوام:</span>
+                                <span className="font-bold text-slate-900">{mConf.studyTime || "07:30 ص - 12:45 م"}</span>
+                              </div>
+                              <div>
+                                <span className="text-slate-500 block text-[10px]">الشعب والسعة:</span>
+                                <span className="font-bold text-slate-900">{mConf.sectionsCount || 1} شعبة ({mConf.maxCapacity || 30} طالب)</span>
+                              </div>
+                              <div>
+                                <span className="text-slate-500 block text-[10px]">القسط السنوي:</span>
+                                <span className="font-bold text-amber-800">{(mConf.annualTuition || grade.annualTuition).toLocaleString()} ر.س</span>
+                              </div>
+                              <div>
+                                <span className="text-slate-500 block text-[10px]">مشرف الصف:</span>
+                                <span className="font-medium text-slate-800 truncate block">{mConf.supervisorTeacherName || "أ. فاطمة الزهراء"}</span>
+                              </div>
+                            </div>
+
+                            {mConf.classroomBlock && (
+                              <div className="text-[10px] text-slate-500 bg-white/70 p-1.5 rounded-lg border border-amber-100/50">
+                                📍 {mConf.classroomBlock}
+                              </div>
+                            )}
+
+                            <div className="pt-1 flex justify-end">
+                              <button
+                                type="button"
+                                onClick={() => openQuickCohortEdit(grade, "morning")}
+                                className="text-[10.5px] text-amber-700 hover:text-amber-900 font-bold flex items-center gap-1 underline"
+                              >
+                                <Edit2 className="w-3 h-3" />
+                                تعديل خصائص الفوج الصباحي
+                              </button>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* 🌙 EVENING COHORT BOX (Shown if viewing 'all' or 'evening') */}
+                        {(gradeCohortView === "all" || gradeCohortView === "evening") && (
+                          <div className="p-3 rounded-xl border border-indigo-200/70 bg-indigo-50/30 space-y-2">
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-1.5">
+                                <span className="w-2 h-2 rounded-full bg-indigo-500" />
+                                <span className="font-bold text-xs text-indigo-900 flex items-center gap-1">
+                                  <Moon className="w-3.5 h-3.5 text-indigo-600" />
+                                  الفوج المسائي (الثاني)
+                                </span>
+                              </div>
+                              <span className={`text-[9.5px] px-2 py-0.5 rounded-md font-bold ${
+                                eConf.enabled
+                                  ? "bg-indigo-100 text-indigo-800"
+                                  : "bg-slate-100 text-slate-500"
+                              }`}>
+                                {eConf.enabled ? "✓ مفعل" : "معطل"}
+                              </span>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-2 text-[11px] text-slate-700 pt-1">
+                              <div>
+                                <span className="text-slate-500 block text-[10px]">مواعيد الدوام:</span>
+                                <span className="font-bold text-slate-900">{eConf.studyTime || "01:00 م - 05:45 م"}</span>
+                              </div>
+                              <div>
+                                <span className="text-slate-500 block text-[10px]">الشعب والسعة:</span>
+                                <span className="font-bold text-slate-900">{eConf.sectionsCount || 1} شعبة ({eConf.maxCapacity || 28} طالب)</span>
+                              </div>
+                              <div>
+                                <span className="text-slate-500 block text-[10px]">القسط السنوي:</span>
+                                <span className="font-bold text-indigo-800">{(eConf.annualTuition || grade.annualTuition - 1000).toLocaleString()} ر.س</span>
+                              </div>
+                              <div>
+                                <span className="text-slate-500 block text-[10px]">مشرف الصف:</span>
+                                <span className="font-medium text-slate-800 truncate block">{eConf.supervisorTeacherName || "أ. زياد المهندس"}</span>
+                              </div>
+                            </div>
+
+                            {eConf.classroomBlock && (
+                              <div className="text-[10px] text-slate-500 bg-white/70 p-1.5 rounded-lg border border-indigo-100/50">
+                                📍 {eConf.classroomBlock}
+                              </div>
+                            )}
+
+                            <div className="pt-1 flex justify-end">
+                              <button
+                                type="button"
+                                onClick={() => openQuickCohortEdit(grade, "evening")}
+                                className="text-[10.5px] text-indigo-700 hover:text-indigo-900 font-bold flex items-center gap-1 underline"
+                              >
+                                <Edit2 className="w-3 h-3" />
+                                تعديل خصائص الفوج المسائي
+                              </button>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Card Footer Actions */}
+                      <div className="p-3 bg-slate-50 border-t border-slate-100 flex items-center justify-between">
+                        <span className="text-[10px] text-slate-500">
+                          إجمالي الشعب: {sections.filter((s) => s.gradeId === grade.id).length || grade.sectionsCount || 2}
+                        </span>
+                        <div className="flex items-center gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => openEditGrade(grade, "general")}
+                            className="px-2.5 py-1.5 bg-white hover:bg-slate-100 text-slate-700 rounded-lg text-[11px] font-bold border border-slate-200 flex items-center gap-1 shadow-2xs transition-colors"
+                          >
+                            <SlidersHorizontal className="w-3 h-3 text-indigo-600" />
+                            تعديل الصف والفوجين
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => deleteGrade(grade.id)}
+                            className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
+                            title="حذف الصف"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+            </div>
+          )}
         </div>
       )}
 
@@ -1116,74 +2107,737 @@ export const SchoolStructureView: React.FC<SchoolStructureViewProps> = ({ initia
         </div>
       )}
 
-      {/* Grade Modal */}
+      {/* Grade Modal (Full multi-tab with independent morning & evening cohort controls) */}
       {showGradeModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-xs p-4">
-          <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-md p-6">
-            <h3 className="text-base font-bold text-slate-900 mb-4">
-              {editingGrade ? "تعديل بيانات الصف" : "إضافة مرحلة / صف جديد"}
-            </h3>
-            <form onSubmit={handleSaveGrade} className="space-y-3 text-xs">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4 overflow-y-auto">
+          <div className="bg-white rounded-3xl shadow-2xl border border-slate-200 w-full max-w-2xl overflow-hidden my-6">
+            {/* Modal Header */}
+            <div className="p-5 bg-gradient-to-r from-slate-900 to-indigo-950 text-white flex items-center justify-between">
               <div>
-                <label className="block text-slate-700 font-bold mb-1">اسم الصف</label>
-                <input
-                  type="text"
-                  required
-                  placeholder="مثال: الصف الخامس الابتدائي"
-                  value={gradeForm.name}
-                  onChange={(e) => setGradeForm({ ...gradeForm, name: e.target.value })}
-                  className="w-full p-2.5 rounded-xl border border-slate-200 text-xs focus:ring-2 focus:ring-indigo-500 focus:outline-hidden"
-                />
+                <span className="text-[10px] font-mono font-bold text-amber-300 uppercase tracking-wider">
+                  {editingGrade ? `تعديل خصائص: ${editingGrade.name}` : "إضافة صف دراسي جديد"}
+                </span>
+                <h3 className="text-base font-black mt-0.5">
+                  إعدادات الصف وهيكلية الفوجين (الصباحي والمسائي)
+                </h3>
               </div>
+              <button
+                type="button"
+                onClick={() => setShowGradeModal(false)}
+                className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-colors"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Modal Navigation Tabs */}
+            <div className="flex border-b border-slate-200 bg-slate-50 px-5 pt-3 gap-2">
+              <button
+                type="button"
+                onClick={() => setGradeForm({ ...gradeForm, activeModalTab: "general" })}
+                className={`pb-3 px-3 text-xs font-bold border-b-2 flex items-center gap-1.5 transition-all ${
+                  gradeForm.activeModalTab === "general"
+                    ? "border-indigo-600 text-indigo-700 font-black"
+                    : "border-transparent text-slate-500 hover:text-slate-900"
+                }`}
+              >
+                <School className="w-3.5 h-3.5" />
+                البيانات العامة
+              </button>
+              <button
+                type="button"
+                onClick={() => setGradeForm({ ...gradeForm, activeModalTab: "morning" })}
+                className={`pb-3 px-3 text-xs font-bold border-b-2 flex items-center gap-1.5 transition-all ${
+                  gradeForm.activeModalTab === "morning"
+                    ? "border-amber-500 text-amber-800 font-black bg-amber-50/50 rounded-t-lg"
+                    : "border-transparent text-slate-500 hover:text-amber-700"
+                }`}
+              >
+                <Sun className="w-3.5 h-3.5 text-amber-500" />
+                خصائص الفوج الصباحي ☀️
+              </button>
+              <button
+                type="button"
+                onClick={() => setGradeForm({ ...gradeForm, activeModalTab: "evening" })}
+                className={`pb-3 px-3 text-xs font-bold border-b-2 flex items-center gap-1.5 transition-all ${
+                  gradeForm.activeModalTab === "evening"
+                    ? "border-indigo-600 text-indigo-800 font-black bg-indigo-50/50 rounded-t-lg"
+                    : "border-transparent text-slate-500 hover:text-indigo-700"
+                }`}
+              >
+                <Moon className="w-3.5 h-3.5 text-indigo-500" />
+                خصائص الفوج المسائي 🌙
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveGrade}>
+              <div className="p-5 max-h-[68vh] overflow-y-auto space-y-4 text-xs">
+                {/* TAB 1: General Info */}
+                {gradeForm.activeModalTab === "general" && (
+                  <div className="space-y-3.5">
+                    {!editingGrade && (
+                      <div className="bg-indigo-50/80 p-3 rounded-2xl border border-indigo-100">
+                        <label className="block text-indigo-950 font-bold mb-1.5 flex items-center gap-1">
+                          <Sparkles className="w-3.5 h-3.5 text-amber-500" />
+                          تعبئة سريعة من الصفوف المستهدفة:
+                        </label>
+                        <div className="grid grid-cols-3 sm:grid-cols-6 gap-1.5">
+                          {targetGradesPresets.map((p) => (
+                            <button
+                              key={p.code}
+                              type="button"
+                              onClick={() => {
+                                setGradeForm({
+                                  ...gradeForm,
+                                  name: p.name,
+                                  code: p.code,
+                                  stage: p.stage,
+                                  annualTuition: p.annualTuition,
+                                  track: p.track,
+                                  morningConfig: { ...p.morningConfig },
+                                  eveningConfig: { ...p.eveningConfig },
+                                });
+                              }}
+                              className="py-1 px-2 rounded-lg bg-white border border-indigo-200 text-slate-800 hover:bg-indigo-600 hover:text-white font-bold text-[10.5px] transition-all"
+                            >
+                              {p.label}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    <div>
+                      <label className="block text-slate-700 font-bold mb-1">اسم الصف الدراسي</label>
+                      <input
+                        type="text"
+                        required
+                        placeholder="مثال: الصف التاسع (الثالث المتوسط / شهادة التعليم الأساسي)"
+                        value={gradeForm.name}
+                        onChange={(e) => setGradeForm({ ...gradeForm, name: e.target.value })}
+                        className="w-full p-2.5 rounded-xl border border-slate-200 text-xs focus:ring-2 focus:ring-indigo-500 focus:outline-hidden"
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-slate-700 font-bold mb-1">رمز / كود الصف</label>
+                        <input
+                          type="text"
+                          required
+                          placeholder="مثال: G9 أو BAC"
+                          value={gradeForm.code}
+                          onChange={(e) => setGradeForm({ ...gradeForm, code: e.target.value })}
+                          className="w-full p-2.5 rounded-xl border border-slate-200 text-xs font-mono uppercase focus:ring-2 focus:ring-indigo-500 focus:outline-hidden"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-slate-700 font-bold mb-1">المرحلة الدراسية</label>
+                        <select
+                          value={gradeForm.stage}
+                          onChange={(e) => setGradeForm({ ...gradeForm, stage: e.target.value as any })}
+                          className="w-full p-2.5 rounded-xl border border-slate-200 text-xs focus:ring-2 focus:ring-indigo-500 focus:outline-hidden"
+                        >
+                          <option value="middle">متوسط / إعدادي (السابع، الثامن، التاسع)</option>
+                          <option value="high">ثانوي (العاشر، الحادي عشر، البكالوريا)</option>
+                          <option value="primary">ابتدائي (الأول إلى السادس)</option>
+                          <option value="kg">رياض أطفال (KG1 / KG2)</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-slate-700 font-bold mb-1">المسار التعليمي / التخصص</label>
+                        <input
+                          type="text"
+                          placeholder="مثال: عام أساسي / علمي / أدبي"
+                          value={gradeForm.track}
+                          onChange={(e) => setGradeForm({ ...gradeForm, track: e.target.value })}
+                          className="w-full p-2.5 rounded-xl border border-slate-200 text-xs focus:ring-2 focus:ring-indigo-500 focus:outline-hidden"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-slate-700 font-bold mb-1">القسط المرجعي العام (ر.س)</label>
+                        <input
+                          type="number"
+                          required
+                          value={gradeForm.annualTuition}
+                          onChange={(e) => setGradeForm({ ...gradeForm, annualTuition: Number(e.target.value) })}
+                          className="w-full p-2.5 rounded-xl border border-slate-200 text-xs focus:ring-2 focus:ring-indigo-500 focus:outline-hidden"
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-slate-700 font-bold mb-1">الأفواج المعتمدة لهذا الصف</label>
+                      <div className="grid grid-cols-3 gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setGradeForm({ ...gradeForm, cohort: "both" })}
+                          className={`p-2 rounded-xl border text-center font-bold transition-all ${
+                            gradeForm.cohort === "both"
+                              ? "bg-indigo-600 text-white border-indigo-600"
+                              : "bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100"
+                          }`}
+                        >
+                          كلا الفوجين معاً
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setGradeForm({ ...gradeForm, cohort: "morning" })}
+                          className={`p-2 rounded-xl border text-center font-bold transition-all ${
+                            gradeForm.cohort === "morning"
+                              ? "bg-amber-500 text-white border-amber-500"
+                              : "bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100"
+                          }`}
+                        >
+                          الفوج الصباحي فقط
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setGradeForm({ ...gradeForm, cohort: "evening" })}
+                          className={`p-2 rounded-xl border text-center font-bold transition-all ${
+                            gradeForm.cohort === "evening"
+                              ? "bg-indigo-800 text-white border-indigo-800"
+                              : "bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100"
+                          }`}
+                        >
+                          الفوج المسائي فقط
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* TAB 2: Morning Cohort Settings */}
+                {gradeForm.activeModalTab === "morning" && (
+                  <div className="space-y-4 bg-amber-50/40 p-4 rounded-2xl border border-amber-200">
+                    <div className="flex items-center justify-between pb-3 border-b border-amber-200/70">
+                      <div>
+                        <h4 className="font-bold text-amber-950 flex items-center gap-1.5">
+                          <Sun className="w-4 h-4 text-amber-600" />
+                          إعدادات الفوج الصباحي (الدوام الأول)
+                        </h4>
+                        <p className="text-[11px] text-amber-800">
+                          هذه الخصائص تطبق حصراً على طلاب ومعلمي وجداول الفوج الصباحي
+                        </p>
+                      </div>
+                      <label className="flex items-center gap-2 cursor-pointer font-bold text-amber-900">
+                        <input
+                          type="checkbox"
+                          checked={gradeForm.morningConfig.enabled}
+                          onChange={(e) =>
+                            setGradeForm({
+                              ...gradeForm,
+                              morningConfig: { ...gradeForm.morningConfig, enabled: e.target.checked },
+                            })
+                          }
+                          className="w-4 h-4 text-amber-600 rounded-md focus:ring-amber-500"
+                        />
+                        تفعيل الصف بالفوج الصباحي
+                      </label>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-slate-700 font-bold mb-1">أوقات الدوام الصباحي</label>
+                        <input
+                          type="text"
+                          placeholder="مثال: 07:30 ص - 12:45 م"
+                          value={gradeForm.morningConfig.studyTime}
+                          onChange={(e) =>
+                            setGradeForm({
+                              ...gradeForm,
+                              morningConfig: { ...gradeForm.morningConfig, studyTime: e.target.value },
+                            })
+                          }
+                          className="w-full p-2.5 rounded-xl border border-slate-200 bg-white text-xs focus:ring-2 focus:ring-amber-500 focus:outline-hidden"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-slate-700 font-bold mb-1">القسط السنوي للصباحي (ر.س)</label>
+                        <input
+                          type="number"
+                          value={gradeForm.morningConfig.annualTuition}
+                          onChange={(e) =>
+                            setGradeForm({
+                              ...gradeForm,
+                              morningConfig: { ...gradeForm.morningConfig, annualTuition: Number(e.target.value) },
+                            })
+                          }
+                          className="w-full p-2.5 rounded-xl border border-slate-200 bg-white text-xs focus:ring-2 focus:ring-amber-500 focus:outline-hidden"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-slate-700 font-bold mb-1">عدد الشعب الصباحية</label>
+                        <input
+                          type="number"
+                          min="1"
+                          max="10"
+                          value={gradeForm.morningConfig.sectionsCount}
+                          onChange={(e) =>
+                            setGradeForm({
+                              ...gradeForm,
+                              morningConfig: { ...gradeForm.morningConfig, sectionsCount: Number(e.target.value) },
+                            })
+                          }
+                          className="w-full p-2.5 rounded-xl border border-slate-200 bg-white text-xs focus:ring-2 focus:ring-amber-500 focus:outline-hidden"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-slate-700 font-bold mb-1">السعة القصوى للشعبة</label>
+                        <input
+                          type="number"
+                          value={gradeForm.morningConfig.maxCapacity}
+                          onChange={(e) =>
+                            setGradeForm({
+                              ...gradeForm,
+                              morningConfig: { ...gradeForm.morningConfig, maxCapacity: Number(e.target.value) },
+                            })
+                          }
+                          className="w-full p-2.5 rounded-xl border border-slate-200 bg-white text-xs focus:ring-2 focus:ring-amber-500 focus:outline-hidden"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-slate-700 font-bold mb-1">مشرف / رائد الصف الصباحي</label>
+                        <select
+                          value={gradeForm.morningConfig.supervisorTeacherName}
+                          onChange={(e) =>
+                            setGradeForm({
+                              ...gradeForm,
+                              morningConfig: { ...gradeForm.morningConfig, supervisorTeacherName: e.target.value },
+                            })
+                          }
+                          className="w-full p-2.5 rounded-xl border border-slate-200 bg-white text-xs focus:ring-2 focus:ring-amber-500 focus:outline-hidden"
+                        >
+                          <option value="">-- اختر مشرفاً من الكادر --</option>
+                          {staff
+                            .filter((s) => s.role === "teacher" || s.role === "supervisor")
+                            .map((t) => (
+                              <option key={t.id} value={t.fullName}>
+                                {t.fullName} ({t.teachingSubjects?.join("، ") || "معلم"})
+                              </option>
+                            ))}
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-slate-700 font-bold mb-1">الجناح والقاعة الصباحية</label>
+                        <input
+                          type="text"
+                          placeholder="مثال: المبنى الأوسط - جناح الصباح (قاعة 101)"
+                          value={gradeForm.morningConfig.classroomBlock}
+                          onChange={(e) =>
+                            setGradeForm({
+                              ...gradeForm,
+                              morningConfig: { ...gradeForm.morningConfig, classroomBlock: e.target.value },
+                            })
+                          }
+                          className="w-full p-2.5 rounded-xl border border-slate-200 bg-white text-xs focus:ring-2 focus:ring-amber-500 focus:outline-hidden"
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-slate-700 font-bold mb-1">ملاحظات وخصوصيات الفوج الصباحي</label>
+                      <textarea
+                        rows={2}
+                        placeholder="أي تعليمات أو تفاصيل خاصة بطلاب ومدرسي الفوج الصباحي..."
+                        value={gradeForm.morningConfig.notes}
+                        onChange={(e) =>
+                          setGradeForm({
+                            ...gradeForm,
+                            morningConfig: { ...gradeForm.morningConfig, notes: e.target.value },
+                          })
+                        }
+                        className="w-full p-2.5 rounded-xl border border-slate-200 bg-white text-xs focus:ring-2 focus:ring-amber-500 focus:outline-hidden"
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {/* TAB 3: Evening Cohort Settings */}
+                {gradeForm.activeModalTab === "evening" && (
+                  <div className="space-y-4 bg-indigo-50/40 p-4 rounded-2xl border border-indigo-200">
+                    <div className="flex items-center justify-between pb-3 border-b border-indigo-200/70">
+                      <div>
+                        <h4 className="font-bold text-indigo-950 flex items-center gap-1.5">
+                          <Moon className="w-4 h-4 text-indigo-600" />
+                          إعدادات الفوج المسائي (الدوام الثاني)
+                        </h4>
+                        <p className="text-[11px] text-indigo-800">
+                          هذه الخصائص تطبق حصراً على طلاب ومعلمي وجداول الفوج المسائي بشكل مستقل
+                        </p>
+                      </div>
+                      <label className="flex items-center gap-2 cursor-pointer font-bold text-indigo-900">
+                        <input
+                          type="checkbox"
+                          checked={gradeForm.eveningConfig.enabled}
+                          onChange={(e) =>
+                            setGradeForm({
+                              ...gradeForm,
+                              eveningConfig: { ...gradeForm.eveningConfig, enabled: e.target.checked },
+                            })
+                          }
+                          className="w-4 h-4 text-indigo-600 rounded-md focus:ring-indigo-500"
+                        />
+                        تفعيل الصف بالفوج المسائي
+                      </label>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-slate-700 font-bold mb-1">أوقات الدوام المسائي</label>
+                        <input
+                          type="text"
+                          placeholder="مثال: 01:00 م - 05:45 م"
+                          value={gradeForm.eveningConfig.studyTime}
+                          onChange={(e) =>
+                            setGradeForm({
+                              ...gradeForm,
+                              eveningConfig: { ...gradeForm.eveningConfig, studyTime: e.target.value },
+                            })
+                          }
+                          className="w-full p-2.5 rounded-xl border border-slate-200 bg-white text-xs focus:ring-2 focus:ring-indigo-500 focus:outline-hidden"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-slate-700 font-bold mb-1">القسط السنوي للمسائي (ر.س)</label>
+                        <input
+                          type="number"
+                          value={gradeForm.eveningConfig.annualTuition}
+                          onChange={(e) =>
+                            setGradeForm({
+                              ...gradeForm,
+                              eveningConfig: { ...gradeForm.eveningConfig, annualTuition: Number(e.target.value) },
+                            })
+                          }
+                          className="w-full p-2.5 rounded-xl border border-slate-200 bg-white text-xs focus:ring-2 focus:ring-indigo-500 focus:outline-hidden"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-slate-700 font-bold mb-1">عدد الشعب المسائية</label>
+                        <input
+                          type="number"
+                          min="1"
+                          max="10"
+                          value={gradeForm.eveningConfig.sectionsCount}
+                          onChange={(e) =>
+                            setGradeForm({
+                              ...gradeForm,
+                              eveningConfig: { ...gradeForm.eveningConfig, sectionsCount: Number(e.target.value) },
+                            })
+                          }
+                          className="w-full p-2.5 rounded-xl border border-slate-200 bg-white text-xs focus:ring-2 focus:ring-indigo-500 focus:outline-hidden"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-slate-700 font-bold mb-1">السعة القصوى للشعبة</label>
+                        <input
+                          type="number"
+                          value={gradeForm.eveningConfig.maxCapacity}
+                          onChange={(e) =>
+                            setGradeForm({
+                              ...gradeForm,
+                              eveningConfig: { ...gradeForm.eveningConfig, maxCapacity: Number(e.target.value) },
+                            })
+                          }
+                          className="w-full p-2.5 rounded-xl border border-slate-200 bg-white text-xs focus:ring-2 focus:ring-indigo-500 focus:outline-hidden"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-slate-700 font-bold mb-1">مشرف / رائد الصف المسائي</label>
+                        <select
+                          value={gradeForm.eveningConfig.supervisorTeacherName}
+                          onChange={(e) =>
+                            setGradeForm({
+                              ...gradeForm,
+                              eveningConfig: { ...gradeForm.eveningConfig, supervisorTeacherName: e.target.value },
+                            })
+                          }
+                          className="w-full p-2.5 rounded-xl border border-slate-200 bg-white text-xs focus:ring-2 focus:ring-indigo-500 focus:outline-hidden"
+                        >
+                          <option value="">-- اختر مشرفاً من الكادر --</option>
+                          {staff
+                            .filter((s) => s.role === "teacher" || s.role === "supervisor")
+                            .map((t) => (
+                              <option key={t.id} value={t.fullName}>
+                                {t.fullName} ({t.teachingSubjects?.join("، ") || "معلم"})
+                              </option>
+                            ))}
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-slate-700 font-bold mb-1">الجناح والقاعة المسائية</label>
+                        <input
+                          type="text"
+                          placeholder="مثال: المبنى الأوسط - جناح المساء (قاعة 101)"
+                          value={gradeForm.eveningConfig.classroomBlock}
+                          onChange={(e) =>
+                            setGradeForm({
+                              ...gradeForm,
+                              eveningConfig: { ...gradeForm.eveningConfig, classroomBlock: e.target.value },
+                            })
+                          }
+                          className="w-full p-2.5 rounded-xl border border-slate-200 bg-white text-xs focus:ring-2 focus:ring-indigo-500 focus:outline-hidden"
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-slate-700 font-bold mb-1">ملاحظات وخصوصيات الفوج المسائي</label>
+                      <textarea
+                        rows={2}
+                        placeholder="أي تعليمات أو تفاصيل خاصة بطلاب ومدرسي الفوج المسائي..."
+                        value={gradeForm.eveningConfig.notes}
+                        onChange={(e) =>
+                          setGradeForm({
+                            ...gradeForm,
+                            eveningConfig: { ...gradeForm.eveningConfig, notes: e.target.value },
+                          })
+                        }
+                        className="w-full p-2.5 rounded-xl border border-slate-200 bg-white text-xs focus:ring-2 focus:ring-indigo-500 focus:outline-hidden"
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Modal Footer */}
+              <div className="flex items-center justify-between p-4 border-t border-slate-200 bg-slate-50">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setGradeForm({
+                      ...gradeForm,
+                      eveningConfig: {
+                        ...gradeForm.morningConfig,
+                        studyTime: "01:00 م - 05:45 م",
+                        annualTuition: Math.max(1000, gradeForm.morningConfig.annualTuition - 1000),
+                        notes: "تم النسخ من إعدادات الصباحي",
+                      },
+                    });
+                  }}
+                  className="text-[11px] text-indigo-700 hover:text-indigo-900 font-bold flex items-center gap-1 bg-white px-3 py-1.5 rounded-xl border border-indigo-200 shadow-2xs"
+                >
+                  <ArrowRightLeft className="w-3 h-3" />
+                  نسخ إعدادات الصباحي إلى المسائي
+                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setShowGradeModal(false)}
+                    className="px-4 py-2 rounded-xl text-slate-600 hover:bg-slate-200 font-bold"
+                  >
+                    إلغاء
+                  </button>
+                  <button
+                    type="submit"
+                    className="px-5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold shadow-xs"
+                  >
+                    {editingGrade ? "تحديث بيانات الصف" : "إنشاء الصف واعتماده"}
+                  </button>
+                </div>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Direct Quick Cohort Editor Modal (Morning or Evening) */}
+      {cohortQuickModal.isOpen && cohortQuickModal.grade && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4">
+          <div className="bg-white rounded-3xl shadow-2xl border border-slate-200 w-full max-w-lg overflow-hidden">
+            <div className={`p-4 text-white flex items-center justify-between ${
+              cohortQuickModal.cohort === "morning"
+                ? "bg-gradient-to-r from-amber-600 to-amber-700"
+                : "bg-gradient-to-r from-indigo-700 to-indigo-900"
+            }`}>
+              <div className="flex items-center gap-2">
+                {cohortQuickModal.cohort === "morning" ? <Sun className="w-5 h-5 text-amber-200" /> : <Moon className="w-5 h-5 text-indigo-200" />}
+                <div>
+                  <h3 className="font-bold text-sm">
+                    تعديل خصائص {cohortQuickModal.cohort === "morning" ? "الفوج الصباحي ☀️" : "الفوج المسائي 🌙"}
+                  </h3>
+                  <p className="text-[11px] text-white/80">
+                    صف: {cohortQuickModal.grade.name}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setCohortQuickModal({ ...cohortQuickModal, isOpen: false })}
+                className="w-7 h-7 rounded-full bg-white/20 hover:bg-white/30 text-white flex items-center justify-center"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveCohortQuick} className="p-5 space-y-3 text-xs">
+              <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+                <span className="font-bold text-slate-800">حالة التفعيل للفوج:</span>
+                <label className="flex items-center gap-2 cursor-pointer font-bold">
+                  <input
+                    type="checkbox"
+                    checked={cohortQuickModal.config.enabled}
+                    onChange={(e) =>
+                      setCohortQuickModal({
+                        ...cohortQuickModal,
+                        config: { ...cohortQuickModal.config, enabled: e.target.checked },
+                      })
+                    }
+                    className="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500"
+                  />
+                  <span>{cohortQuickModal.config.enabled ? "مفعل بهذا الفوج" : "معطل بهذا الفوج"}</span>
+                </label>
+              </div>
+
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-slate-700 font-bold mb-1">الكود المختصر</label>
+                  <label className="block text-slate-700 font-bold mb-1">مواعيد الدوام</label>
                   <input
                     type="text"
-                    required
-                    placeholder="مثال: G5"
-                    value={gradeForm.code}
-                    onChange={(e) => setGradeForm({ ...gradeForm, code: e.target.value })}
+                    value={cohortQuickModal.config.studyTime}
+                    onChange={(e) =>
+                      setCohortQuickModal({
+                        ...cohortQuickModal,
+                        config: { ...cohortQuickModal.config, studyTime: e.target.value },
+                      })
+                    }
                     className="w-full p-2.5 rounded-xl border border-slate-200 text-xs focus:ring-2 focus:ring-indigo-500 focus:outline-hidden"
                   />
                 </div>
                 <div>
-                  <label className="block text-slate-700 font-bold mb-1">المرحلة</label>
-                  <select
-                    value={gradeForm.stage}
-                    onChange={(e) => setGradeForm({ ...gradeForm, stage: e.target.value as any })}
+                  <label className="block text-slate-700 font-bold mb-1">القسط السنوي (ر.س)</label>
+                  <input
+                    type="number"
+                    value={cohortQuickModal.config.annualTuition}
+                    onChange={(e) =>
+                      setCohortQuickModal({
+                        ...cohortQuickModal,
+                        config: { ...cohortQuickModal.config, annualTuition: Number(e.target.value) },
+                      })
+                    }
                     className="w-full p-2.5 rounded-xl border border-slate-200 text-xs focus:ring-2 focus:ring-indigo-500 focus:outline-hidden"
-                  >
-                    <option value="kg">رياض أطفال (KG)</option>
-                    <option value="primary">ابتدائي</option>
-                    <option value="middle">متوسط</option>
-                    <option value="high">ثانوي</option>
-                  </select>
+                  />
                 </div>
               </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-slate-700 font-bold mb-1">عدد الشعب المخصصة</label>
+                  <input
+                    type="number"
+                    min="1"
+                    max="10"
+                    value={cohortQuickModal.config.sectionsCount}
+                    onChange={(e) =>
+                      setCohortQuickModal({
+                        ...cohortQuickModal,
+                        config: { ...cohortQuickModal.config, sectionsCount: Number(e.target.value) },
+                      })
+                    }
+                    className="w-full p-2.5 rounded-xl border border-slate-200 text-xs focus:ring-2 focus:ring-indigo-500 focus:outline-hidden"
+                  />
+                </div>
+                <div>
+                  <label className="block text-slate-700 font-bold mb-1">سعة الشعبة القصوى</label>
+                  <input
+                    type="number"
+                    value={cohortQuickModal.config.maxCapacity}
+                    onChange={(e) =>
+                      setCohortQuickModal({
+                        ...cohortQuickModal,
+                        config: { ...cohortQuickModal.config, maxCapacity: Number(e.target.value) },
+                      })
+                    }
+                    className="w-full p-2.5 rounded-xl border border-slate-200 text-xs focus:ring-2 focus:ring-indigo-500 focus:outline-hidden"
+                  />
+                </div>
+              </div>
+
               <div>
-                <label className="block text-slate-700 font-bold mb-1">القسط السنوي المعتمد (ر.س)</label>
+                <label className="block text-slate-700 font-bold mb-1">المشرف المسؤول عن الصف في هذا الفوج</label>
+                <select
+                  value={cohortQuickModal.config.supervisorTeacherName}
+                  onChange={(e) =>
+                    setCohortQuickModal({
+                      ...cohortQuickModal,
+                      config: { ...cohortQuickModal.config, supervisorTeacherName: e.target.value },
+                    })
+                  }
+                  className="w-full p-2.5 rounded-xl border border-slate-200 text-xs focus:ring-2 focus:ring-indigo-500 focus:outline-hidden"
+                >
+                  <option value="">-- اختر من قائمة المعلمين والمشرفين --</option>
+                  {staff
+                    .filter((s) => s.role === "teacher" || s.role === "supervisor")
+                    .map((t) => (
+                      <option key={t.id} value={t.fullName}>
+                        {t.fullName} ({t.teachingSubjects?.join("، ") || "معلم"})
+                      </option>
+                    ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-slate-700 font-bold mb-1">المبنى / القاعة / الجناح</label>
                 <input
-                  type="number"
-                  required
-                  value={gradeForm.annualTuition}
-                  onChange={(e) => setGradeForm({ ...gradeForm, annualTuition: Number(e.target.value) })}
+                  type="text"
+                  value={cohortQuickModal.config.classroomBlock}
+                  onChange={(e) =>
+                    setCohortQuickModal({
+                      ...cohortQuickModal,
+                      config: { ...cohortQuickModal.config, classroomBlock: e.target.value },
+                    })
+                  }
                   className="w-full p-2.5 rounded-xl border border-slate-200 text-xs focus:ring-2 focus:ring-indigo-500 focus:outline-hidden"
                 />
               </div>
-              <div className="flex items-center justify-end gap-2 pt-4 border-t border-slate-100">
+
+              <div>
+                <label className="block text-slate-700 font-bold mb-1">ملاحظات الفوج</label>
+                <textarea
+                  rows={2}
+                  value={cohortQuickModal.config.notes}
+                  onChange={(e) =>
+                    setCohortQuickModal({
+                      ...cohortQuickModal,
+                      config: { ...cohortQuickModal.config, notes: e.target.value },
+                    })
+                  }
+                  className="w-full p-2.5 rounded-xl border border-slate-200 text-xs focus:ring-2 focus:ring-indigo-500 focus:outline-hidden"
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100">
                 <button
                   type="button"
-                  onClick={() => setShowGradeModal(false)}
+                  onClick={() => setCohortQuickModal({ ...cohortQuickModal, isOpen: false })}
                   className="px-4 py-2 rounded-xl text-slate-600 hover:bg-slate-100 font-bold"
                 >
                   إلغاء
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold"
+                  className={`px-5 py-2 rounded-xl text-white font-bold shadow-xs ${
+                    cohortQuickModal.cohort === "morning"
+                      ? "bg-amber-600 hover:bg-amber-700"
+                      : "bg-indigo-600 hover:bg-indigo-700"
+                  }`}
                 >
-                  حفظ
+                  حفظ خصائص هذا الفوج فقط
                 </button>
               </div>
             </form>

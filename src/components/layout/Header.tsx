@@ -31,6 +31,8 @@ export const Header: React.FC<HeaderProps> = ({ onToggleSidebar }) => {
     unreadPushCount,
     activeModule,
     setActiveModule,
+    activeCohort,
+    setActiveCohort,
   } = useSchool();
 
   const isPortalIsolated =
@@ -242,6 +244,48 @@ export const Header: React.FC<HeaderProps> = ({ onToggleSidebar }) => {
               <div className="font-bold tracking-wider">{currentTimeStr || "10:24 ص"}</div>
               <div className="text-[11px] text-sky-200">{currentDateStr || "الأحد 2025/09/21"}</div>
             </div>
+
+            {/* Quick Cohort Switcher in Header */}
+            {!isPortalIsolated && (
+              <div className="hidden xl:flex items-center bg-black/30 p-0.5 rounded-lg border border-white/10 text-xs">
+                <button
+                  type="button"
+                  onClick={() => setActiveCohort("morning")}
+                  className={`px-2 py-1 rounded text-[10.5px] font-bold transition-all cursor-pointer ${
+                    activeCohort === "morning" || activeCohort === "cohort_1"
+                      ? "bg-emerald-600 text-white shadow-xs"
+                      : "text-white/70 hover:text-white"
+                  }`}
+                  title="تفعيل الفوج الأول (صباحي)"
+                >
+                  الفوج الأول (صباحي)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveCohort("evening")}
+                  className={`px-2 py-1 rounded text-[10.5px] font-bold transition-all cursor-pointer ${
+                    activeCohort === "evening" || activeCohort === "cohort_2"
+                      ? "bg-indigo-600 text-white shadow-xs"
+                      : "text-white/70 hover:text-white"
+                  }`}
+                  title="تفعيل الفوج الثاني (مسائي)"
+                >
+                  الفوج الثاني (مسائي)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveCohort("all")}
+                  className={`px-2 py-1 rounded text-[10.5px] font-bold transition-all cursor-pointer ${
+                    activeCohort === "all"
+                      ? "bg-white/20 text-white"
+                      : "text-white/60 hover:text-white"
+                  }`}
+                  title="عرض كلا الفوجين"
+                >
+                  الكل
+                </button>
+              </div>
+            )}
           </div>
 
           {/* LEFT SIDE: School Official Logo + Ministry + User Profile */}
